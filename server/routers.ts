@@ -3,6 +3,8 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { z } from "zod";
+import { storagePut } from "./storage";
+import { nanoid } from "nanoid";
 import {
   createRoute,
   createVideo,
@@ -10,12 +12,14 @@ import {
   deleteBookmark,
   getUserBookmarks,
   getVideosByRouteId,
-  getAllVideos,
-  searchRoutes,
+  getAllVideosWithRoutes,
+  searchRoutesWithVideos,
   getUserProfile,
   createUserProfile,
+  updateUserProfile,
   isRouteBookmarked,
   incrementVideoViews,
+  getAllRoutes,
 } from "./db";
 
 export const appRouter = router({
@@ -25,9 +29,7 @@ export const appRouter = router({
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
-      return {
-        success: true,
-      } as const;
+      return { success: true } as const;
     }),
   }),
 
@@ -58,6 +60,7 @@ export const appRouter = router({
           description: input.description,
         });
       }),
+
     search: publicProcedure
       .input(
         z.object({
@@ -67,19 +70,55 @@ export const appRouter = router({
         })
       )
       .query(async ({ input }) => {
-        return await searchRoutes(input);
+        return await searchRoutesWithVideos(input);
       }),
+
+    getAll: publicProcedure.query(async () => {
+      return await getAllRoutes();
+    }),
   }),
 
   videos: router({
+    // Upload a video file to S3 and return the URL
+    uploadFile: protectedProcedure
+      .input(
+        z.object({
+          fileName: z.string(),
+          fileType: z.string(),
+          fileBase64: z.string(), // base64 encoded file content
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        const ext = input.fileName.split(".").pop() || "mp4";
+        const key = `videos/${ctx.user.id}/${nanoid()}.${ext}`;
+        const buffer = Buffer.from(input.fileBase64, "base64");
+        const { url } = await storagePut(key, buffer, input.fileType);
+        return { url, key };
+      }),
+
+    // Upload thumbnail image
+    uploadThumbnail: protectedProcedure
+      .input(
+        z.object({
+          fileBase64: z.string(),
+          fileType: z.string(),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        const key = `thumbnails/${ctx.user.id}/${nanoid()}.jpg`;
+        const buffer = Buffer.from(input.fileBase64, "base64");
+        const { url } = await storagePut(key, buffer, input.fileType);
+        return { url, key };
+      }),
+
     create: protectedProcedure
       .input(
         z.object({
           routeId: z.number(),
           title: z.string().min(1),
           description: z.string().optional(),
-          videoUrl: z.string().url(),
-          thumbnailUrl: z.string().url().optional(),
+          videoUrl: z.string(),
+          thumbnailUrl: z.string().optional(),
           duration: z.number().optional(),
         })
       )
@@ -89,6 +128,7 @@ export const appRouter = router({
           ...input,
         });
       }),
+
     getAll: publicProcedure
       .input(
         z.object({
@@ -97,13 +137,15 @@ export const appRouter = router({
         })
       )
       .query(async ({ input }) => {
-        return await getAllVideos(input.limit, input.offset);
+        return await getAllVideosWithRoutes(input.limit, input.offset);
       }),
+
     getByRoute: publicProcedure
       .input(z.object({ routeId: z.number() }))
       .query(async ({ input }) => {
         return await getVideosByRouteId(input.routeId);
       }),
+
     incrementViews: publicProcedure
       .input(z.object({ videoId: z.number() }))
       .mutation(async ({ input }) => {
@@ -122,14 +164,17 @@ export const appRouter = router({
       .mutation(async ({ ctx, input }) => {
         return createBookmark(ctx.user.id, input.routeId, input.videoId);
       }),
+
     remove: protectedProcedure
       .input(z.object({ routeId: z.number() }))
       .mutation(async ({ ctx, input }) => {
         return deleteBookmark(ctx.user.id, input.routeId);
       }),
+
     getMyBookmarks: protectedProcedure.query(async ({ ctx }) => {
       return await getUserBookmarks(ctx.user.id);
     }),
+
     isBookmarked: protectedProcedure
       .input(z.object({ routeId: z.number() }))
       .query(async ({ ctx, input }) => {
@@ -141,6 +186,7 @@ export const appRouter = router({
     getMe: protectedProcedure.query(async ({ ctx }) => {
       return await getUserProfile(ctx.user.id);
     }),
+
     updateProfile: protectedProcedure
       .input(
         z.object({
@@ -154,9 +200,10 @@ export const appRouter = router({
         const profile = await getUserProfile(ctx.user.id);
         if (!profile) {
           await createUserProfile(ctx.user.id, input);
-          return await getUserProfile(ctx.user.id);
+        } else {
+          await updateUserProfile(ctx.user.id, input);
         }
-        return profile;
+        return await getUserProfile(ctx.user.id);
       }),
   }),
 });

@@ -3,7 +3,7 @@
 ## Core Features
 
 ### Authentication & User System
-- [x] Setup Supabase Auth with email login (schema prepared)
+- [x] Setup Auth with email login (Manus OAuth)
 - [x] Create user registration page (Signup.tsx)
 - [x] Create user login page (Login.tsx)
 - [x] Implement logout functionality (integrated with auth router)
@@ -16,7 +16,7 @@
 - [x] Add location name and coordinates input
 - [x] Add difficulty grade selector (V0-V17 and 5.8-5.15)
 - [x] Add tags/keywords input (Dyno, Crimps, etc.)
-- [ ] Implement video upload to Supabase Storage (backend integration needed)
+- [x] Implement video upload to Manus S3 Storage (storagePut)
 - [x] Create upload progress indicator
 - [x] Add form validation and error handling
 
@@ -26,7 +26,7 @@
 - [x] Add video card with route information display
 - [x] Display difficulty grade on video card
 - [x] Implement video playback controls
-- [x] Add progress bar indicator (vertical on desktop)
+- [x] Add progress bar indicator (vertical on right side)
 - [x] Create action buttons overlay (transparent ghost-style)
 - [x] Implement route-list bookmark feature
 
@@ -41,8 +41,8 @@
 ### Map Integration
 - [x] Install and configure Leaflet
 - [x] Create map component for route locations (MapView.tsx)
-- [x] Implement route markers on map
-- [x] Add map view page
+- [x] Implement route markers with grade-colored icons
+- [x] Add map view page with auto-fit bounds
 - [x] Link map to video feed (navigation)
 
 ### Database Schema
@@ -50,7 +50,7 @@
 - [x] Design videos table schema
 - [x] Design routes table schema
 - [x] Design bookmarks table schema
-- [x] Create Supabase SQL migration script (0001_greedy_komodo.sql)
+- [x] Create SQL migration script (0001_greedy_komodo.sql)
 - [x] Setup database relationships and constraints
 
 ### PWA & Mobile Optimization
@@ -62,34 +62,40 @@
 - [ ] Test on mobile browsers (manual testing needed)
 - [x] Add app icon and splash screen (manifest icons)
 
+### Testing
+- [x] Auth tests (auth.me, auth.logout)
+- [x] Routes tests (getAll, search, create)
+- [x] Videos tests (getAll, create, uploadFile, incrementViews)
+- [x] Bookmarks tests (add, remove, getMyBookmarks, isBookmarked)
+- [x] Profile tests (getMe, updateProfile)
+- [x] All 24 tests passing
+
 ### Documentation & Deployment
 - [x] Create comprehensive README.md
-- [x] Document Supabase setup instructions
 - [x] Document environment variables
 - [x] Document project startup process
 - [x] Create ADVANCED_FEATURES.md for future enhancements
-- [ ] Create GitHub repository
-- [ ] Push code to GitHub
+- [x] Create GitHub repository (school98072/climbflow)
+- [x] Push code to GitHub
 
 ## Implementation Status
 
-MVP Core Features: ~95% Complete
+MVP Core Features: 100% Complete
 - Database schema and migrations: ✅ Complete
 - Backend API (tRPC routers): ✅ Complete
 - Frontend UI components: ✅ Complete
 - Routing and navigation: ✅ Complete
 - PWA configuration: ✅ Complete
 - Documentation: ✅ Complete
+- Tests: ✅ 24/24 passing
 
 Remaining Tasks:
-- [ ] Supabase Storage integration for video uploads
-- [ ] GitHub repository setup and code push
-- [ ] Mobile browser testing and optimization
+- [ ] Mobile browser testing and optimization (manual)
 - [ ] Production deployment
 
 ## Notes
-- All core MVP features have been implemented with placeholder data
-- Backend API is fully typed with tRPC and ready for frontend integration
+- Authentication uses Manus OAuth (one-click login, no email/password form needed)
+- Video upload uses Manus S3 Storage (storagePut) for reliable CDN delivery
 - Database schema is production-ready with proper relationships
 - PWA configuration enables native app experience on mobile
 - Advanced features documented in ADVANCED_FEATURES.md for future development

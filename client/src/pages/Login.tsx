@@ -1,98 +1,94 @@
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertCircle, Loader2 } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useEffect } from "react";
+import { useAuth } from "@/_core/hooks/useAuth";
+import { getLoginUrl } from "@/const";
+import { Loader2, Mountain, Play, MapPin, Users } from "lucide-react";
 
 export default function Login() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const { isAuthenticated, loading } = useAuth();
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    setIsLoading(true);
-
-    try {
-      // TODO: Implement Supabase Auth login
-      // This will be connected to Supabase Auth in the next phase
-      console.log("Login attempt:", { email, password });
-    } catch (err) {
-      setError("Login failed. Please try again.");
-    } finally {
-      setIsLoading(false);
+  // If already authenticated, redirect to feed
+  useEffect(() => {
+    if (!loading && isAuthenticated) {
+      window.location.href = "/feed";
     }
-  };
+  }, [isAuthenticated, loading]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-blue-900">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 px-4">
-      <Card className="w-full max-w-md shadow-lg">
-        <CardHeader className="space-y-2">
-          <CardTitle className="text-2xl font-bold text-center">ClimbFlow</CardTitle>
-          <CardDescription className="text-center">Share your climbing moments</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleLogin} className="space-y-4">
-            {error && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex flex-col">
+      {/* Header */}
+      <div className="flex items-center gap-2 px-6 py-5">
+        <div className="w-9 h-9 bg-gradient-to-br from-blue-400 to-cyan-500 rounded-xl flex items-center justify-center font-bold text-white text-sm">
+          CF
+        </div>
+        <span className="text-white text-xl font-bold">ClimbFlow</span>
+      </div>
 
-            <div className="space-y-2">
-              <label htmlFor="email" className="text-sm font-medium">
-                Email
-              </label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                disabled={isLoading}
-              />
+      {/* Main content */}
+      <div className="flex-1 flex items-center justify-center px-6 py-12">
+        <div className="w-full max-w-sm space-y-8">
+          {/* Icon */}
+          <div className="text-center space-y-4">
+            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center mx-auto shadow-2xl shadow-blue-500/30">
+              <Mountain className="h-10 w-10 text-white" />
             </div>
-
-            <div className="space-y-2">
-              <label htmlFor="password" className="text-sm font-medium">
-                Password
-              </label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                disabled={isLoading}
-              />
+            <div>
+              <h1 className="text-3xl font-bold text-white">Welcome back</h1>
+              <p className="text-gray-400 mt-2">Sign in to share your climbs and discover routes</p>
             </div>
+          </div>
 
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Logging in...
-                </>
-              ) : (
-                "Login"
-              )}
-            </Button>
+          {/* Login button */}
+          <div className="space-y-4">
+            <a
+              href={getLoginUrl()}
+              className="flex items-center justify-center gap-3 w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-4 px-6 rounded-2xl transition-all duration-200 shadow-lg shadow-blue-600/30 hover:shadow-blue-500/40 hover:-translate-y-0.5 active:translate-y-0"
+            >
+              <div className="w-6 h-6 bg-white/20 rounded-md flex items-center justify-center text-xs font-bold">CF</div>
+              Continue with ClimbFlow
+            </a>
 
-            <div className="text-center text-sm text-gray-600">
-              Don't have an account?{" "}
-              <a href="/signup" className="font-semibold text-blue-600 hover:text-blue-700">
-                Sign up
-              </a>
+            <p className="text-center text-gray-500 text-xs">
+              By continuing, you agree to our{" "}
+              <span className="text-gray-400 underline cursor-pointer">Terms of Service</span>
+              {" "}and{" "}
+              <span className="text-gray-400 underline cursor-pointer">Privacy Policy</span>
+            </p>
+          </div>
+
+          {/* Features preview */}
+          <div className="space-y-3 pt-4 border-t border-white/10">
+            <p className="text-gray-500 text-xs uppercase tracking-wider text-center">What you'll get</p>
+            <div className="space-y-2.5">
+              {[
+                { icon: Play, text: "Full-screen vertical climbing feed" },
+                { icon: MapPin, text: "Interactive route map with GPS" },
+                { icon: Users, text: "Connect with climbers worldwide" },
+              ].map(({ icon: Icon, text }) => (
+                <div key={text} className="flex items-center gap-3 text-gray-300 text-sm">
+                  <div className="w-8 h-8 rounded-lg bg-blue-900/50 flex items-center justify-center flex-shrink-0">
+                    <Icon className="h-4 w-4 text-blue-400" />
+                  </div>
+                  {text}
+                </div>
+              ))}
             </div>
-          </form>
-        </CardContent>
-      </Card>
+          </div>
+
+          <div className="text-center">
+            <a href="/" className="text-gray-500 hover:text-gray-300 text-sm transition">
+              ← Back to home
+            </a>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
