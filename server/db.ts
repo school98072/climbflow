@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { eq, like, and, sql, or } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import { InsertUser, users, userProfiles, routes, videos, bookmarks, InsertRoute, InsertVideo, InsertUserProfile } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -89,4 +89,127 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+/**
+ * User profile queries
+ */
+export async function getUserProfile(userId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(userProfiles).where(eq(userProfiles.userId, userId)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function createUserProfile(userId: number, data: Partial<InsertUserProfile>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.insert(userProfiles).values({ userId, ...data });
+}
+
+/**
+ * Route queries
+ */
+export async function createRoute(data: InsertRoute) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(routes).values(data);
+  return result;
+}
+
+export async function getRouteById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(routes).where(eq(routes.id, id)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function getRoutesByUserId(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(routes).where(eq(routes.userId, userId));
+}
+
+export async function searchRoutes(filters: { locationName?: string; difficultyGrade?: string; gradeSystem?: string }) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  const conditions = [];
+  
+  if (filters.locationName) {
+    conditions.push(like(routes.locationName, `%${filters.locationName}%`));
+  }
+  if (filters.difficultyGrade) {
+    conditions.push(eq(routes.difficultyGrade, filters.difficultyGrade));
+  }
+  if (filters.gradeSystem) {
+    conditions.push(eq(routes.gradeSystem, filters.gradeSystem));
+  }
+  
+  if (conditions.length === 0) {
+    return db.select().from(routes);
+  }
+  
+  return db.select().from(routes).where(and(...conditions));
+}
+
+/**
+ * Video queries
+ */
+export async function createVideo(data: InsertVideo) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(videos).values(data);
+  return result;
+}
+
+export async function getVideoById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(videos).where(eq(videos.id, id)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function getVideosByRouteId(routeId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(videos).where(eq(videos.routeId, routeId));
+}
+
+export async function getAllVideos(limit: number = 20, offset: number = 0) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(videos).limit(limit).offset(offset);
+}
+
+export async function incrementVideoViews(videoId: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(videos).set({ views: sql`views + 1` }).where(eq(videos.id, videoId));
+}
+
+/**
+ * Bookmark queries
+ */
+export async function createBookmark(userId: number, routeId: number, videoId?: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.insert(bookmarks).values({ userId, routeId, videoId });
+}
+
+export async function deleteBookmark(userId: number, routeId: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(bookmarks).where(and(eq(bookmarks.userId, userId), eq(bookmarks.routeId, routeId)));
+}
+
+export async function getUserBookmarks(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(bookmarks).where(eq(bookmarks.userId, userId));
+}
+
+export async function isRouteBookmarked(userId: number, routeId: number) {
+  const db = await getDb();
+  if (!db) return false;
+  const result = await db.select().from(bookmarks).where(and(eq(bookmarks.userId, userId), eq(bookmarks.routeId, routeId))).limit(1);
+  return result.length > 0;
+}
