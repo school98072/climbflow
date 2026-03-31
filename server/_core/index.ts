@@ -50,15 +50,12 @@ async function startServer() {
     serveStatic(app);
   }
 
-  const preferredPort = parseInt(process.env.PORT || "3000");
-  const port = await findAvailablePort(preferredPort);
+  // 关键修复：生产环境下必须严格遵循平台分配的 PORT，且监听 0.0.0.0
+  const port = parseInt(process.env.PORT || "3000");
+  const host = "0.0.0.0";
 
-  if (port !== preferredPort) {
-    console.log(`Port ${preferredPort} is busy, using port ${port} instead`);
-  }
-
-  server.listen(port, () => {
-    console.log(`Server running on http://localhost:${port}/`);
+  server.listen(port, host, () => {
+    console.log(`Server running on http://${host}:${port}/ (NODE_ENV: ${process.env.NODE_ENV})`);
   });
 }
 
