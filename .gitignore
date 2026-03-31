@@ -13,6 +13,16 @@ build/
 .env.development.local
 .env.test.local
 .env.production.local
+.env.workspace
+*.key
+*.pem
+*.crt
+*.cert
+*.pfx
+*.p12
+secrets.json
+credentials.json
+auth.json
 
 # IDE and editor files
 .vscode/
