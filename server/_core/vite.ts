@@ -48,8 +48,8 @@ export async function setupVite(app: Express, server: Server) {
 }
 
 export function serveStatic(app: Express) {
-  // 在 Railway/Vercel 的生产环境下，dist 目录通常在项目根目录
-  const distPath = path.resolve(process.cwd(), "dist");
+  // 根据 vite.config.ts 的 build.outDir 配置，静态文件被构建在 dist/public
+  const distPath = path.resolve(process.cwd(), "dist", "public");
   
   if (!fs.existsSync(distPath)) {
     console.error(
