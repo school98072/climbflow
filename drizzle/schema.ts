@@ -7,12 +7,10 @@ import { relations } from "drizzle-orm";
 export const roleEnum = pgEnum("role", ["user", "admin"]);
 
 /**
- * Core user table backing auth flow.
- * Updated to support OAuth login and snake_case database naming.
+ * Users Table
  */
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
-  // Increased length to 255 to safely store emails or OAuth IDs as openId
   openId: varchar("open_id", { length: 255 }).notNull().unique(),
   email: varchar("email", { length: 320 }).unique(),
   name: text("name"),
@@ -27,9 +25,9 @@ export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
 /**
- * User profile extension
+ * User Profiles Table
  */
-export const userProfiles = pgTable("userProfiles", {
+export const userProfiles = pgTable("user_profiles", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().unique(),
   bio: text("bio"),
@@ -44,7 +42,7 @@ export type UserProfile = typeof userProfiles.$inferSelect;
 export type InsertUserProfile = typeof userProfiles.$inferInsert;
 
 /**
- * Routes table
+ * Routes Table
  */
 export const routes = pgTable("routes", {
   id: serial("id").primaryKey(),
@@ -65,7 +63,7 @@ export type Route = typeof routes.$inferSelect;
 export type InsertRoute = typeof routes.$inferInsert;
 
 /**
- * Videos table
+ * Videos Table
  */
 export const videos = pgTable("videos", {
   id: serial("id").primaryKey(),
@@ -85,7 +83,7 @@ export type Video = typeof videos.$inferSelect;
 export type InsertVideo = typeof videos.$inferInsert;
 
 /**
- * Bookmarks table
+ * Bookmarks Table
  */
 export const bookmarks = pgTable("bookmarks", {
   id: serial("id").primaryKey(),
@@ -99,7 +97,7 @@ export type Bookmark = typeof bookmarks.$inferSelect;
 export type InsertBookmark = typeof bookmarks.$inferInsert;
 
 /**
- * Likes table
+ * Likes Table
  */
 export const likes = pgTable("likes", {
   id: serial("id").primaryKey(),
@@ -112,7 +110,7 @@ export type Like = typeof likes.$inferSelect;
 export type InsertLike = typeof likes.$inferInsert;
 
 /**
- * Comments table
+ * Comments Table
  */
 export const comments = pgTable("comments", {
   id: serial("id").primaryKey(),
