@@ -3,7 +3,8 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import {
   InsertUser, users, userProfiles, routes, videos, bookmarks,
-  InsertRoute, InsertVideo, InsertUserProfile, User
+  InsertRoute, InsertVideo, InsertUserProfile, User,
+  likes, comments
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -51,7 +52,7 @@ export async function updateLastSignedIn(id: number): Promise<void> {
 }
 
 // ─── User Profile ─────────────────────────────────────────────────────────────
-... (rest of the file unchanged)
+
 export async function getUserProfile(userId: number) {
   const db = await getDb();
   if (!db) return undefined;
@@ -221,4 +222,64 @@ export async function isRouteBookmarked(userId: number, routeId: number) {
   const result = await db.select().from(bookmarks)
     .where(and(eq(bookmarks.userId, userId), eq(bookmarks.routeId, routeId))).limit(1);
   return result.length > 0;
+}
+
+// ─── Likes ────────────────────────────────────────────────────────────────────
+
+export async function createLike(userId: number, videoId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.insert(likes).values({ userId, videoId });
+}
+
+export async function deleteLike(userId: number, videoId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.delete(likes).where(and(eq(likes.userId, userId), eq(likes.videoId, videoId)));
+}
+
+export async function getVideoLikesCount(videoId: number) {
+  const db = await getDb();
+  if (!db) return 0;
+  const result = await db.select({ count: sql<number>`count(*)` }).from(likes).where(eq(likes.videoId, videoId));
+  return Number(result[0]?.count ?? 0);
+}
+
+export async function isVideoLikedByUser(userId: number, videoId: number) {
+  const db = await getDb();
+  if (!db) return false;
+  const result = await db.select().from(likes).where(and(eq(likes.userId, userId), eq(likes.videoId, videoId))).limit(1);
+  return result.length > 0;
+}
+
+// ─── Comments ─────────────────────────────────────────────────────────────────
+
+export async function createComment(userId: number, videoId: number, content: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const [result] = await db.insert(comments).values({ userId, videoId, content }).returning();
+  return result;
+}
+
+export async function deleteComment(userId: number, commentId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.delete(comments).where(and(eq(comments.userId, userId), eq(comments.id, commentId)));
+}
+
+export async function getVideoComments(videoId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  const results = await db.select().from(comments).where(eq(comments.videoId, videoId)).orderBy(desc(comments.createdAt));
+  
+  return Promise.all(
+    results.map(async (comment) => {
+      const userRows = await db!.select().from(users).where(eq(users.id, comment.userId)).limit(1);
+      const user = userRows[0];
+      return {
+        ...comment,
+        userName: user?.name ?? "Anonymous",
+      };
+    })
+  );
 }

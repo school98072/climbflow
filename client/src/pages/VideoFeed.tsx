@@ -2,12 +2,23 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Heart, MessageCircle, Share2, Bookmark, ChevronUp, ChevronDown,
-  MapPin, Play, Volume2, VolumeX, ArrowLeft, Upload, MoreVertical
+  MapPin, Play, Volume2, VolumeX, ArrowLeft, Upload, Send, Trash2
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { formatDistanceToNow } from "date-fns";
 
 type FeedVideo = {
   id: number;
@@ -23,6 +34,7 @@ type FeedVideo = {
   tags?: string[];
   userId: number;
   createdAt: Date;
+  routeId: number;
 };
 
 function gradeColor(grade: string): string {
@@ -35,11 +47,9 @@ function gradeColor(grade: string): string {
 }
 
 export default function VideoFeed() {
-  const { isAuthenticated } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const [activeIndex, setActiveIndex] = useState(0);
   const [muted, setMuted] = useState(true);
-  const [bookmarkedRoutes, setBookmarkedRoutes] = useState<Set<number>>(new Set());
-  const [likedVideos, setLikedVideos] = useState<Set<number>>(new Set());
   
   // Fetch videos from tRPC
   const { data: videosData, isLoading, error } = trpc.videos.getAll.useQuery(
@@ -48,8 +58,6 @@ export default function VideoFeed() {
   );
 
   const incrementViews = trpc.videos.incrementViews.useMutation();
-  const addBookmark = trpc.bookmarks.add.useMutation();
-  const removeBookmark = trpc.bookmarks.remove.useMutation();
 
   const videos: FeedVideo[] = useMemo(() => (videosData ?? []).map((v: any) => ({
     id: v.id,
@@ -65,37 +73,8 @@ export default function VideoFeed() {
     tags: (v.tags as string[]) ?? [],
     userId: v.userId,
     createdAt: new Date(v.createdAt),
+    routeId: v.routeId,
   })), [videosData]);
-
-  const handleBookmark = (routeId: number, videoId: number) => {
-    if (!isAuthenticated) {
-      toast.error("Please log in to bookmark routes");
-      return;
-    }
-    setBookmarkedRoutes((prev) => {
-      const next = new Set(prev);
-      if (next.has(routeId)) {
-        next.delete(routeId);
-        removeBookmark.mutate({ routeId });
-        toast.success("Removed from bookmarks");
-      } else {
-        next.add(routeId);
-        addBookmark.mutate({ routeId, videoId });
-        toast.success("Route bookmarked!");
-      }
-      return next;
-    });
-  };
-
-  const handleLike = (videoId: number) => {
-    if (!isAuthenticated) { toast.error("Please log in to like videos"); return; }
-    setLikedVideos((prev) => {
-      const next = new Set(prev);
-      if (next.has(videoId)) { next.delete(videoId); toast("Unliked"); }
-      else { next.add(videoId); toast.success("❤️ Liked!"); }
-      return next;
-    });
-  };
 
   const handleShare = async (video: FeedVideo) => {
     const url = window.location.origin + `/feed?v=${video.id}`;
@@ -159,16 +138,12 @@ export default function VideoFeed() {
             video={video}
             isActive={index === activeIndex}
             muted={muted}
-            isLiked={likedVideos.has(video.id)}
-            isBookmarked={bookmarkedRoutes.has(video.id)}
             onVisibilityChange={(isVisible) => {
               if (isVisible) {
                 setActiveIndex(index);
                 incrementViews.mutate({ videoId: video.id });
               }
             }}
-            onLike={() => handleLike(video.id)}
-            onBookmark={() => handleBookmark(video.id, video.id)}
             onShare={() => handleShare(video)}
           />
         ))}
@@ -187,13 +162,13 @@ export default function VideoFeed() {
                 const el = document.getElementById(`video-${video.id}`);
                 el?.scrollIntoView({ behavior: 'smooth' });
               }}
-              className={`w-full text-left p-3 border-b border-zinc-900 transition ${
+              className={`w-full text-left p-3 border-zinc-900 transition ${
                 index === activeIndex ? "bg-blue-600/20" : "hover:bg-white/5"
               }`}
             >
               <div className="relative aspect-video rounded overflow-hidden mb-2 bg-zinc-900">
                 {video.thumbnailUrl && <img src={video.thumbnailUrl} alt="" className="w-full h-full object-cover" />}
-                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition">
                   <Play className="h-6 w-6 text-white" />
                 </div>
               </div>
@@ -212,22 +187,38 @@ export default function VideoFeed() {
   );
 }
 
-function VideoItem({ video, isActive, muted, isLiked, isBookmarked, onVisibilityChange, onLike, onBookmark, onShare }: {
+function VideoItem({ video, isActive, muted, onVisibilityChange, onShare }: {
   video: FeedVideo;
   isActive: boolean;
   muted: boolean;
-  isLiked: boolean;
-  isBookmarked: boolean;
   onVisibilityChange: (isVisible: boolean) => void;
-  onLike: () => void;
-  onBookmark: () => void;
   onShare: () => void;
 }) {
+  const { user, isAuthenticated } = useAuth();
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [progress, setProgress] = useState(0);
   const [lastTap, setLastTap] = useState(0);
   const [showBetaOverlay, setShowBetaOverlay] = useState(false);
+  const [commentText, setCommentText] = useState("");
+
+  // tRPC state
+  const { data: likeCount, refetch: refetchLikeCount } = trpc.likes.getCount.useQuery({ videoId: video.id });
+  const { data: isLiked, refetch: refetchIsLiked } = trpc.likes.isLiked.useQuery({ videoId: video.id }, { enabled: isAuthenticated });
+  const { data: isBookmarked, refetch: refetchIsBookmarked } = trpc.bookmarks.isBookmarked.useQuery({ routeId: video.routeId }, { enabled: isAuthenticated });
+  const { data: comments, refetch: refetchComments } = trpc.comments.getForVideo.useQuery({ videoId: video.id });
+
+  const toggleLike = trpc.likes.toggle.useMutation({
+    onSuccess: () => {
+      refetchLikeCount();
+      refetchIsLiked();
+    }
+  });
+
+  const addBookmark = trpc.bookmarks.add.useMutation({ onSuccess: () => refetchIsBookmarked() });
+  const removeBookmark = trpc.bookmarks.remove.useMutation({ onSuccess: () => refetchIsBookmarked() });
+  const addComment = trpc.comments.add.useMutation({ onSuccess: () => { refetchComments(); setCommentText(""); } });
+  const deleteComment = trpc.comments.remove.useMutation({ onSuccess: () => refetchComments() });
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -262,6 +253,28 @@ function VideoItem({ video, isActive, muted, isLiked, isBookmarked, onVisibility
     setLastTap(now);
   };
 
+  const handleLike = () => {
+    if (!isAuthenticated) { toast.error("Please log in to like videos"); return; }
+    toggleLike.mutate({ videoId: video.id });
+  };
+
+  const handleBookmark = () => {
+    if (!isAuthenticated) { toast.error("Please log in to bookmark routes"); return; }
+    if (isBookmarked) {
+      removeBookmark.mutate({ routeId: video.routeId });
+      toast.success("Removed from bookmarks");
+    } else {
+      addBookmark.mutate({ routeId: video.routeId, videoId: video.id });
+      toast.success("Route bookmarked!");
+    }
+  };
+
+  const handleAddComment = () => {
+    if (!commentText.trim()) return;
+    if (!isAuthenticated) { toast.error("Please log in to comment"); return; }
+    addComment.mutate({ videoId: video.id, content: commentText });
+  };
+
   return (
     <div
       id={`video-${video.id}`}
@@ -292,7 +305,7 @@ function VideoItem({ video, isActive, muted, isLiked, isBookmarked, onVisibility
             exit={{ opacity: 0, scale: 0.9 }}
             className="absolute inset-0 z-40 flex items-center justify-center pointer-events-none"
           >
-            <div className="bg-black/70 backdrop-blur-md rounded-2xl px-8 py-6 text-center border border-white/10">
+            <div className="bg-black/70 backdrop-blur-md rounded-2xl px-8 py-6 text-center border border-white/10 pointer-events-auto">
               <p className="text-white text-lg font-bold mb-1">🧗 Beta Mode</p>
               <p className="text-gray-300 text-sm">Hold analysis coming soon</p>
               <div className="mt-3 flex gap-2 justify-center flex-wrap">
@@ -339,12 +352,85 @@ function VideoItem({ video, isActive, muted, isLiked, isBookmarked, onVisibility
                   View Beta Path
                 </button>
                 <div className="flex gap-2">
-                  <button onClick={onBookmark} className={`p-3 rounded-2xl transition active:scale-95 ${isBookmarked ? 'bg-blue-600' : 'bg-white/10 hover:bg-white/20'}`}>
+                  <button onClick={handleBookmark} className={`p-3 rounded-2xl transition active:scale-95 ${isBookmarked ? 'bg-blue-600' : 'bg-white/10 hover:bg-white/20'}`}>
                     <Bookmark className={`h-5 w-5 text-white ${isBookmarked ? 'fill-white' : ''}`} />
                   </button>
-                  <button onClick={onLike} className={`p-3 rounded-2xl transition active:scale-95 ${isLiked ? 'bg-red-600' : 'bg-white/10 hover:bg-white/20'}`}>
-                    <Heart className={`h-5 w-5 text-white ${isLiked ? 'fill-white' : ''}`} />
-                  </button>
+                  
+                  <div className="flex flex-col items-center gap-1">
+                    <button onClick={handleLike} className={`p-3 rounded-2xl transition active:scale-95 ${isLiked ? 'bg-red-600' : 'bg-white/10 hover:bg-white/20'}`}>
+                      <Heart className={`h-5 w-5 text-white ${isLiked ? 'fill-white' : ''}`} />
+                    </button>
+                    {likeCount !== undefined && likeCount > 0 && <span className="text-[10px] text-white/60 font-medium">{likeCount}</span>}
+                  </div>
+
+                  <Drawer>
+                    <DrawerTrigger asChild>
+                      <button className="p-3 rounded-2xl bg-white/10 hover:bg-white/20 transition active:scale-95 relative">
+                        <MessageCircle className="h-5 w-5 text-white" />
+                        {comments && comments.length > 0 && (
+                          <span className="absolute -top-1 -right-1 bg-blue-500 text-[8px] text-white w-4 h-4 rounded-full flex items-center justify-center font-bold">
+                            {comments.length}
+                          </span>
+                        )}
+                      </button>
+                    </DrawerTrigger>
+                    <DrawerContent className="bg-zinc-950 text-white border-white/10">
+                      <DrawerHeader>
+                        <DrawerTitle className="text-white">Comments ({comments?.length ?? 0})</DrawerTitle>
+                      </DrawerHeader>
+                      <div className="p-4 flex flex-col h-[60vh]">
+                        <ScrollArea className="flex-1 pr-4">
+                          <div className="space-y-6">
+                            {comments?.map((comment: any) => (
+                              <div key={comment.id} className="flex gap-3 group">
+                                <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-blue-400">
+                                  {comment.userName.charAt(0)}
+                                </div>
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-xs font-bold text-white/90">{comment.userName}</span>
+                                    <span className="text-[10px] text-white/40">{formatDistanceToNow(new Date(comment.createdAt))} ago</span>
+                                  </div>
+                                  <p className="text-sm text-white/80 leading-relaxed">{comment.content}</p>
+                                </div>
+                                {user?.id === comment.userId && (
+                                  <button 
+                                    onClick={() => deleteComment.mutate({ commentId: comment.id })}
+                                    className="opacity-0 group-hover:opacity-100 p-1 text-white/40 hover:text-red-400 transition"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                )}
+                              </div>
+                            ))}
+                            {(!comments || comments.length === 0) && (
+                              <div className="text-center py-12 text-white/40 italic text-sm">
+                                No comments yet. Be the first to cheer!
+                              </div>
+                            )}
+                          </div>
+                        </ScrollArea>
+                        
+                        <div className="mt-4 pt-4 border-t border-white/10 flex gap-2">
+                          <Input 
+                            value={commentText}
+                            onChange={(e) => setCommentText(e.target.value)}
+                            placeholder="Add a comment..."
+                            className="bg-white/5 border-white/10 text-white placeholder:text-white/30 rounded-xl focus:ring-blue-500"
+                            onKeyDown={(e) => e.key === 'Enter' && handleAddComment()}
+                          />
+                          <Button 
+                            onClick={handleAddComment}
+                            disabled={!commentText.trim() || addComment.isPending}
+                            className="bg-blue-600 hover:bg-blue-700 rounded-xl px-4"
+                          >
+                            <Send className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </DrawerContent>
+                  </Drawer>
+
                   <button onClick={onShare} className="p-3 rounded-2xl bg-white/10 hover:bg-white/20 transition active:scale-95">
                     <Share2 className="h-5 w-5 text-white" />
                   </button>

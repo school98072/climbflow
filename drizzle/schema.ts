@@ -23,7 +23,7 @@ export const users = pgTable("users", {
 
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
-... (rest of the file unchanged)
+
 /**
  * User profile extension
  */
@@ -97,12 +97,42 @@ export type Bookmark = typeof bookmarks.$inferSelect;
 export type InsertBookmark = typeof bookmarks.$inferInsert;
 
 /**
+ * Likes table
+ */
+export const likes = pgTable("likes", {
+  id: serial("id").primaryKey(),
+  userId: integer("userId").notNull(),
+  videoId: integer("videoId").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type Like = typeof likes.$inferSelect;
+export type InsertLike = typeof likes.$inferInsert;
+
+/**
+ * Comments table
+ */
+export const comments = pgTable("comments", {
+  id: serial("id").primaryKey(),
+  userId: integer("userId").notNull(),
+  videoId: integer("videoId").notNull(),
+  content: text("content").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+});
+
+export type Comment = typeof comments.$inferSelect;
+export type InsertComment = typeof comments.$inferInsert;
+
+/**
  * Relations
  */
 export const usersRelations = relations(users, ({ many }) => ({
   routes: many(routes),
   videos: many(videos),
   bookmarks: many(bookmarks),
+  likes: many(likes),
+  comments: many(comments),
 }));
 
 export const routesRelations = relations(routes, ({ one, many }) => ({
@@ -115,10 +145,22 @@ export const videosRelations = relations(videos, ({ one, many }) => ({
   user: one(users, { fields: [videos.userId], references: [users.id] }),
   route: one(routes, { fields: [videos.routeId], references: [routes.id] }),
   bookmarks: many(bookmarks),
+  likes: many(likes),
+  comments: many(comments),
 }));
 
 export const bookmarksRelations = relations(bookmarks, ({ one }) => ({
   user: one(users, { fields: [bookmarks.userId], references: [users.id] }),
   route: one(routes, { fields: [bookmarks.routeId], references: [routes.id] }),
   video: one(videos, { fields: [bookmarks.videoId], references: [videos.id] }),
+}));
+
+export const likesRelations = relations(likes, ({ one }) => ({
+  user: one(users, { fields: [likes.userId], references: [users.id] }),
+  video: one(videos, { fields: [likes.videoId], references: [videos.id] }),
+}));
+
+export const commentsRelations = relations(comments, ({ one }) => ({
+  user: one(users, { fields: [comments.userId], references: [users.id] }),
+  video: one(videos, { fields: [comments.videoId], references: [videos.id] }),
 }));

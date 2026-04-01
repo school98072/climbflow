@@ -27,6 +27,13 @@ import {
   isRouteBookmarked,
   incrementVideoViews,
   getAllRoutes,
+  createLike,
+  deleteLike,
+  getVideoLikesCount,
+  isVideoLikedByUser,
+  createComment,
+  deleteComment,
+  getVideoComments,
 } from "./db";
 
 function hashPassword(password: string): string {
@@ -103,7 +110,7 @@ export const appRouter = router({
       return { success: true } as const;
     }),
   }),
-... (rest of the file unchanged)
+
   routes: router({
     create: protectedProcedure
       .input(
@@ -275,6 +282,58 @@ export const appRouter = router({
           await updateUserProfile(ctx.user.id, input);
         }
         return await getUserProfile(ctx.user.id);
+      }),
+  }),
+
+  likes: router({
+    toggle: protectedProcedure
+      .input(z.object({ videoId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const isLiked = await isVideoLikedByUser(ctx.user.id, input.videoId);
+        if (isLiked) {
+          await deleteLike(ctx.user.id, input.videoId);
+          return { liked: false };
+        } else {
+          await createLike(ctx.user.id, input.videoId);
+          return { liked: true };
+        }
+      }),
+
+    getCount: publicProcedure
+      .input(z.object({ videoId: z.number() }))
+      .query(async ({ input }) => {
+        return await getVideoLikesCount(input.videoId);
+      }),
+
+    isLiked: protectedProcedure
+      .input(z.object({ videoId: z.number() }))
+      .query(async ({ ctx, input }) => {
+        return await isVideoLikedByUser(ctx.user.id, input.videoId);
+      }),
+  }),
+
+  comments: router({
+    add: protectedProcedure
+      .input(
+        z.object({
+          videoId: z.number(),
+          content: z.string().min(1),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        return await createComment(ctx.user.id, input.videoId, input.content);
+      }),
+
+    remove: protectedProcedure
+      .input(z.object({ commentId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        return await deleteComment(ctx.user.id, input.commentId);
+      }),
+
+    getForVideo: publicProcedure
+      .input(z.object({ videoId: z.number() }))
+      .query(async ({ input }) => {
+        return await getVideoComments(input.videoId);
       }),
   }),
 });

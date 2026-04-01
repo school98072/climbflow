@@ -1,3 +1,4 @@
+// v3-cache-bust-12345
 import { useEffect, useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Loader2, Mountain, Zap, Shield, Globe, Mail, Lock, User } from "lucide-react";
@@ -55,6 +56,7 @@ export default function Signup() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex flex-col">
       {/* Header */}
+      <div className="bg-red-600 text-white text-center py-1 text-xs font-bold">LATEST VERSION (EMAIL AUTH)</div>
       <div className="flex items-center gap-2 px-6 py-5">
         <div className="w-9 h-9 bg-gradient-to-br from-blue-400 to-cyan-500 rounded-xl flex items-center justify-center font-bold text-white text-sm">
           CF
