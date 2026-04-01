@@ -1,34 +1,45 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { getLoginUrl } from "@/const";
-import { Loader2, Mountain, Play, MapPin, Users } from "lucide-react";
+import { Loader2, Mountain, Mail, Lock, AlertCircle } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { trpc } from "@/lib/trpc";
+import { toast } from "sonner";
 
 export default function Login() {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading: authLoading } = useAuth();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const loginMutation = trpc.auth.login.useMutation();
 
-  // If already authenticated, redirect to feed or redirectUri if present
+  // If already authenticated, redirect to feed
   useEffect(() => {
-    if (!loading && isAuthenticated) {
-      const searchParams = new URLSearchParams(window.location.search);
-      const redirectUri = searchParams.get("redirectUri");
-      const state = searchParams.get("state");
-
-      if (redirectUri) {
-        // If we have a redirectUri, it means we are in an OAuth flow.
-        // Redirect back with a mock code (the backend will need to handle this).
-        const url = new URL(redirectUri);
-        url.searchParams.set("code", "mock_auth_code_" + Date.now());
-        if (state) {
-          url.searchParams.set("state", state);
-        }
-        window.location.href = url.toString();
-      } else {
-        window.location.href = "/feed";
-      }
+    if (!authLoading && isAuthenticated) {
+      window.location.href = "/feed";
     }
-  }, [isAuthenticated, loading]);
+  }, [isAuthenticated, authLoading]);
 
-  if (loading) {
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !password) {
+      toast.error("Please fill in all fields");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await loginMutation.mutateAsync({ email, password });
+      toast.success("Welcome back!");
+      window.location.href = "/feed";
+    } catch (error: any) {
+      toast.error(error.message || "Login failed. Please check your credentials.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-blue-900">
         <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
@@ -56,51 +67,50 @@ export default function Login() {
             </div>
             <div>
               <h1 className="text-3xl font-bold text-white">Welcome back</h1>
-              <p className="text-gray-400 mt-2">Sign in to share your climbs and discover routes</p>
+              <p className="text-gray-400 mt-2">Sign in to your account</p>
             </div>
           </div>
 
-          {/* Login button */}
-          <div className="space-y-4">
-            <a
-              href={getLoginUrl()}
-              className="flex items-center justify-center gap-3 w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-4 px-6 rounded-2xl transition-all duration-200 shadow-lg shadow-blue-600/30 hover:shadow-blue-500/40 hover:-translate-y-0.5 active:translate-y-0"
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div className="space-y-2">
+              <div className="relative">
+                <Mail className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                <Input
+                  type="email"
+                  placeholder="Email address"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-gray-500 rounded-2xl h-12"
+                  required
+                />
+              </div>
+              <div className="relative">
+                <Lock className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                <Input
+                  type="password"
+                  placeholder="Password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-gray-500 rounded-2xl h-12"
+                  required
+                />
+              </div>
+            </div>
+
+            <Button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold h-12 rounded-2xl transition-all duration-200 shadow-lg shadow-blue-600/30 hover:shadow-blue-500/40"
             >
-              <div className="w-6 h-6 bg-white/20 rounded-md flex items-center justify-center text-xs font-bold">CF</div>
-              Continue with ClimbFlow
-            </a>
-
-            <p className="text-center text-gray-500 text-xs">
-              By continuing, you agree to our{" "}
-              <span className="text-gray-400 underline cursor-pointer">Terms of Service</span>
-              {" "}and{" "}
-              <span className="text-gray-400 underline cursor-pointer">Privacy Policy</span>
-            </p>
-          </div>
-
-          {/* Features preview */}
-          <div className="space-y-3 pt-4 border-t border-white/10">
-            <p className="text-gray-500 text-xs uppercase tracking-wider text-center">What you'll get</p>
-            <div className="space-y-2.5">
-              {[
-                { icon: Play, text: "Full-screen vertical climbing feed" },
-                { icon: MapPin, text: "Interactive route map with GPS" },
-                { icon: Users, text: "Connect with climbers worldwide" },
-              ].map(({ icon: Icon, text }) => (
-                <div key={text} className="flex items-center gap-3 text-gray-300 text-sm">
-                  <div className="w-8 h-8 rounded-lg bg-blue-900/50 flex items-center justify-center flex-shrink-0">
-                    <Icon className="h-4 w-4 text-blue-400" />
-                  </div>
-                  {text}
-                </div>
-              ))}
-            </div>
-          </div>
+              {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Sign In"}
+            </Button>
+          </form>
 
           <div className="text-center">
-            <a href="/" className="text-gray-500 hover:text-gray-300 text-sm transition">
-              ← Back to home
-            </a>
+            <p className="text-gray-500 text-sm">
+              Don't have an account?{" "}
+              <a href="/signup" className="text-blue-400 hover:text-blue-300 transition">Create one</a>
+            </p>
           </div>
         </div>
       </div>

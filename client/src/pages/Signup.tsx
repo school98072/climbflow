@@ -1,18 +1,50 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { getLoginUrl } from "@/const";
-import { Loader2, Mountain, Zap, Shield, Globe } from "lucide-react";
+import { Loader2, Mountain, Zap, Shield, Globe, Mail, Lock, User } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { trpc } from "@/lib/trpc";
+import { toast } from "sonner";
 
 export default function Signup() {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading: authLoading } = useAuth();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [loading, setLoading] = useState(false);
+  const signupMutation = trpc.auth.signup.useMutation();
 
   useEffect(() => {
-    if (!loading && isAuthenticated) {
+    if (!authLoading && isAuthenticated) {
       window.location.href = "/feed";
     }
-  }, [isAuthenticated, loading]);
+  }, [isAuthenticated, authLoading]);
 
-  if (loading) {
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !password || !name) {
+      toast.error("Please fill in all fields");
+      return;
+    }
+
+    if (password.length < 6) {
+      toast.error("Password must be at least 6 characters long");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await signupMutation.mutateAsync({ email, password, name });
+      toast.success("Account created successfully!");
+      window.location.href = "/feed";
+    } catch (error: any) {
+      toast.error(error.message || "Signup failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-blue-900">
         <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
@@ -40,25 +72,60 @@ export default function Signup() {
             </div>
             <div>
               <h1 className="text-3xl font-bold text-white">Join ClimbFlow</h1>
-              <p className="text-gray-400 mt-2">Create your account and start sharing your climbing journey</p>
+              <p className="text-gray-400 mt-2">Create your account to start sharing</p>
             </div>
           </div>
 
-          {/* Signup button */}
-          <div className="space-y-4">
-            <a
-              href={getLoginUrl("signUp")}
-              className="flex items-center justify-center gap-3 w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-semibold py-4 px-6 rounded-2xl transition-all duration-200 shadow-lg shadow-blue-600/30 hover:-translate-y-0.5 active:translate-y-0"
-            >
-              <div className="w-6 h-6 bg-white/20 rounded-md flex items-center justify-center text-xs font-bold">CF</div>
-              Create Account
-            </a>
+          <form onSubmit={handleSignup} className="space-y-4">
+            <div className="space-y-2">
+              <div className="relative">
+                <User className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                <Input
+                  type="text"
+                  placeholder="Full name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-gray-500 rounded-2xl h-12"
+                  required
+                />
+              </div>
+              <div className="relative">
+                <Mail className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                <Input
+                  type="email"
+                  placeholder="Email address"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-gray-500 rounded-2xl h-12"
+                  required
+                />
+              </div>
+              <div className="relative">
+                <Lock className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                <Input
+                  type="password"
+                  placeholder="Password (min 6 chars)"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-gray-500 rounded-2xl h-12"
+                  required
+                />
+              </div>
+            </div>
 
-            <p className="text-center text-gray-500 text-xs">
+            <Button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-semibold h-12 rounded-2xl transition-all duration-200 shadow-lg shadow-blue-600/30"
+            >
+              {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Create Account"}
+            </Button>
+
+            <p className="text-center text-gray-500 text-sm">
               Already have an account?{" "}
               <a href="/login" className="text-blue-400 hover:text-blue-300 transition">Sign in</a>
             </p>
-          </div>
+          </form>
 
           {/* Benefits */}
           <div className="space-y-3 pt-4 border-t border-white/10">
@@ -67,7 +134,7 @@ export default function Signup() {
               {[
                 { icon: Zap, text: "Upload and share climbing videos instantly" },
                 { icon: Globe, text: "Discover routes from around the world" },
-                { icon: Shield, text: "Secure account with one-click login" },
+                { icon: Shield, text: "Secure account with email protection" },
               ].map(({ icon: Icon, text }) => (
                 <div key={text} className="flex items-center gap-3 text-gray-300 text-sm">
                   <div className="w-8 h-8 rounded-lg bg-cyan-900/50 flex items-center justify-center flex-shrink-0">
@@ -77,12 +144,6 @@ export default function Signup() {
                 </div>
               ))}
             </div>
-          </div>
-
-          <div className="text-center">
-            <a href="/" className="text-gray-500 hover:text-gray-300 text-sm transition">
-              ← Back to home
-            </a>
           </div>
         </div>
       </div>

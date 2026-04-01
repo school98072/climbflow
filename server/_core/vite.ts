@@ -48,22 +48,40 @@ export async function setupVite(app: Express, server: Server) {
 }
 
 export function serveStatic(app: Express) {
-  // 静态文件构建在 dist/public
-  const distPath = path.resolve(process.cwd(), "dist", "public");
+  // In production, the server is bundled into dist/index.js
+  // So import.meta.dirname is 'dist'
+  // and public files are in 'dist/public'
+  const distPath = path.resolve(import.meta.dirname, "public");
   const indexPath = path.resolve(distPath, "index.html");
+
+  console.log(`[Static] Serving from: ${distPath}`);
+  console.log(`[Static] Index path: ${indexPath}`);
 
   if (!fs.existsSync(distPath)) {
     console.error(
-      `[Static] Could not find the build directory: ${distPath}`
+      `[Static] CRITICAL: Build directory not found: ${distPath}. Falling back to process.cwd() approach.`
     );
+    // Fallback for different deployment structures
+    const fallbackPath = path.resolve(process.cwd(), "dist", "public");
+    const fallbackIndex = path.resolve(fallbackPath, "index.html");
+    
+    app.use(express.static(fallbackPath, { index: false }));
+    app.get("*", (req, res, next) => {
+      if (req.path.startsWith("/api")) return next();
+      if (fs.existsSync(fallbackIndex)) {
+        res.sendFile(fallbackIndex);
+      } else {
+        res.status(404).send("Not Found: index.html missing");
+      }
+    });
+    return;
   }
 
-  // 1. 优先服务静态资源文件 (js, css, images 等)
+  // 1. Serve static assets
   app.use(express.static(distPath, { index: false }));
 
-  // 2. 对于所有非 API 的 GET 请求，统一回退到 index.html 以支持 SPA 路由
+  // 2. Handle SPA routing fallback
   app.get("*", (req, res, next) => {
-    // 排除以 /api 开头的请求，让它们交给后面的路由处理
     if (req.path.startsWith("/api")) {
       return next();
     }
@@ -71,7 +89,7 @@ export function serveStatic(app: Express) {
     if (fs.existsSync(indexPath)) {
       res.sendFile(indexPath);
     } else {
-      res.status(404).send("Not Found: index.html is missing in dist/public");
+      res.status(404).send("Not Found: index.html is missing");
     }
   });
 }

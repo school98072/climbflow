@@ -1,11 +1,18 @@
-import { COOKIE_NAME } from "@shared/const";
+import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { z } from "zod";
 import { storagePut } from "./storage";
 import { nanoid } from "nanoid";
+import { scryptSync, randomBytes, timingSafeEqual } from "node:crypto";
+import { SignJWT } from "jose";
+import { ENV } from "./_core/env";
 import {
+  createUser,
+  getUserByEmail,
+  getUserById,
+  updateLastSignedIn,
   createRoute,
   createVideo,
   createBookmark,
@@ -22,17 +29,81 @@ import {
   getAllRoutes,
 } from "./db";
 
+function hashPassword(password: string): string {
+  const salt = randomBytes(16).toString("hex");
+  const derivedKey = scryptSync(password, salt, 64).toString("hex");
+  return `${salt}:${derivedKey}`;
+}
+
+function verifyPassword(password: string, hash: string): boolean {
+  const [salt, key] = hash.split(":");
+  const derivedKey = scryptSync(password, salt!, 64);
+  return timingSafeEqual(derivedKey, Buffer.from(key!, "hex"));
+}
+
+async function createSessionToken(userId: number) {
+  const secret = new TextEncoder().encode(ENV.cookieSecret);
+  return new SignJWT({ userId })
+    .setProtectedHeader({ alg: "HS256" })
+    .setExpirationTime("365d")
+    .sign(secret);
+}
+
 export const appRouter = router({
   system: systemRouter,
   auth: router({
     me: publicProcedure.query((opts) => opts.ctx.user),
+    
+    signup: publicProcedure
+      .input(z.object({
+        email: z.string().email(),
+        password: z.string().min(6),
+        name: z.string().optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const existing = await getUserByEmail(input.email);
+        if (existing) throw new Error("Email already registered");
+
+        const passwordHash = hashPassword(input.password);
+        const user = await createUser({
+          email: input.email,
+          passwordHash,
+          name: input.name || null,
+        });
+
+        const token = await createSessionToken(user.id);
+        const cookieOptions = getSessionCookieOptions(ctx.req);
+        ctx.res.cookie(COOKIE_NAME, token, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+        
+        return user;
+      }),
+
+    login: publicProcedure
+      .input(z.object({
+        email: z.string().email(),
+        password: z.string(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const user = await getUserByEmail(input.email);
+        if (!user || !verifyPassword(input.password, user.passwordHash)) {
+          throw new Error("Invalid email or password");
+        }
+
+        await updateLastSignedIn(user.id);
+        const token = await createSessionToken(user.id);
+        const cookieOptions = getSessionCookieOptions(ctx.req);
+        ctx.res.cookie(COOKIE_NAME, token, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+        
+        return user;
+      }),
+
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
       return { success: true } as const;
     }),
   }),
-
+... (rest of the file unchanged)
   routes: router({
     create: protectedProcedure
       .input(
