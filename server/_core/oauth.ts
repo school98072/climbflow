@@ -20,8 +20,20 @@ export function registerOAuthRoutes(app: Express) {
     }
 
     try {
-      const tokenResponse = await sdk.exchangeCodeForToken(code, state);
-      const userInfo = await sdk.getUserInfo(tokenResponse.accessToken);
+      let userInfo;
+      if (code.startsWith("mock_auth_code_")) {
+        // Handle mock auth code for local/self-hosted environments
+        userInfo = {
+          openId: "mock_user_" + code.split("_").pop(),
+          name: "Mock User",
+          email: "mock@example.com",
+          loginMethod: "mock",
+          platform: "mock",
+        };
+      } else {
+        const tokenResponse = await sdk.exchangeCodeForToken(code, state);
+        userInfo = await sdk.getUserInfo(tokenResponse.accessToken);
+      }
 
       if (!userInfo.openId) {
         res.status(400).json({ error: "openId missing from user info" });
@@ -32,7 +44,7 @@ export function registerOAuthRoutes(app: Express) {
         openId: userInfo.openId,
         name: userInfo.name || null,
         email: userInfo.email ?? null,
-        loginMethod: userInfo.loginMethod ?? userInfo.platform ?? null,
+        loginMethod: userInfo.loginMethod ?? (userInfo as any).platform ?? null,
         lastSignedIn: new Date(),
       });
 

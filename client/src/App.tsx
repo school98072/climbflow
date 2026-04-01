@@ -36,7 +36,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
-      <Route path="/login" component={Login} />
+      <Route path="/login/:rest*" component={Login} />
       <Route path="/signup" component={Signup} />
       <Route path="/feed" component={VideoFeed} />
       <Route path="/explore" component={Explore} />

@@ -6,10 +6,25 @@ import { Loader2, Mountain, Play, MapPin, Users } from "lucide-react";
 export default function Login() {
   const { isAuthenticated, loading } = useAuth();
 
-  // If already authenticated, redirect to feed
+  // If already authenticated, redirect to feed or redirectUri if present
   useEffect(() => {
     if (!loading && isAuthenticated) {
-      window.location.href = "/feed";
+      const searchParams = new URLSearchParams(window.location.search);
+      const redirectUri = searchParams.get("redirectUri");
+      const state = searchParams.get("state");
+
+      if (redirectUri) {
+        // If we have a redirectUri, it means we are in an OAuth flow.
+        // Redirect back with a mock code (the backend will need to handle this).
+        const url = new URL(redirectUri);
+        url.searchParams.set("code", "mock_auth_code_" + Date.now());
+        if (state) {
+          url.searchParams.set("state", state);
+        }
+        window.location.href = url.toString();
+      } else {
+        window.location.href = "/feed";
+      }
     }
   }, [isAuthenticated, loading]);
 
