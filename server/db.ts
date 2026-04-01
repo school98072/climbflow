@@ -40,6 +40,12 @@ export async function getUserByEmail(email: string): Promise<User | undefined> {
   return result;
 }
 
+export async function getUserByOpenId(openId: string): Promise<User | undefined> {
+  const db = await getDb();
+  const [result] = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
+  return result;
+}
+
 export async function getUserById(id: number): Promise<User | undefined> {
   const db = await getDb();
   const [result] = await db.select().from(users).where(eq(users.id, id)).limit(1);

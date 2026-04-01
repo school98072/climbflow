@@ -41,7 +41,8 @@ function makeUser(overrides: Partial<AuthenticatedUser> = {}): AuthenticatedUser
   return {
     id: 1,
     email: "climber@example.com",
-    passwordHash: "mock-hash",
+    openId: "mock-openid",
+    loginMethod: "oauth",
     name: "Test Climber",
     role: "user",
     createdAt: new Date("2026-01-01"),

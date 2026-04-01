@@ -5,12 +5,12 @@ import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { z } from "zod";
 import { storagePut } from "./storage";
 import { nanoid } from "nanoid";
-import { scryptSync, randomBytes, timingSafeEqual } from "node:crypto";
 import { SignJWT } from "jose";
 import { ENV } from "./_core/env";
 import {
   createUser,
   getUserByEmail,
+  getUserByOpenId,
   getUserById,
   updateLastSignedIn,
   createRoute,
@@ -36,18 +36,6 @@ import {
   getVideoComments,
 } from "./db";
 
-function hashPassword(password: string): string {
-  const salt = randomBytes(16).toString("hex");
-  const derivedKey = scryptSync(password, salt, 64).toString("hex");
-  return `${salt}:${derivedKey}`;
-}
-
-function verifyPassword(password: string, hash: string): boolean {
-  const [salt, key] = hash.split(":");
-  const derivedKey = scryptSync(password, salt!, 64);
-  return timingSafeEqual(derivedKey, Buffer.from(key!, "hex"));
-}
-
 async function createSessionToken(userId: number) {
   const secret = new TextEncoder().encode(ENV.cookieSecret);
   return new SignJWT({ userId })
@@ -61,21 +49,23 @@ export const appRouter = router({
   auth: router({
     me: publicProcedure.query((opts) => opts.ctx.user),
     
+    // Updated to support OAuth-style registration/login via OpenId
     signup: publicProcedure
       .input(z.object({
         email: z.string().email(),
-        password: z.string().min(6),
+        openId: z.string(),
         name: z.string().optional(),
+        loginMethod: z.string().default("oauth"),
       }))
       .mutation(async ({ input, ctx }) => {
-        const existing = await getUserByEmail(input.email);
-        if (existing) throw new Error("Email already registered");
+        const existing = await getUserByOpenId(input.openId);
+        if (existing) throw new Error("User already exists");
 
-        const passwordHash = hashPassword(input.password);
         const user = await createUser({
           email: input.email,
-          passwordHash,
+          openId: input.openId,
           name: input.name || null,
+          loginMethod: input.loginMethod,
         });
 
         const token = await createSessionToken(user.id);
@@ -87,13 +77,12 @@ export const appRouter = router({
 
     login: publicProcedure
       .input(z.object({
-        email: z.string().email(),
-        password: z.string(),
+        openId: z.string(),
       }))
       .mutation(async ({ input, ctx }) => {
-        const user = await getUserByEmail(input.email);
-        if (!user || !verifyPassword(input.password, user.passwordHash)) {
-          throw new Error("Invalid email or password");
+        const user = await getUserByOpenId(input.openId);
+        if (!user) {
+          throw new Error("User not found");
         }
 
         await updateLastSignedIn(user.id);

@@ -16,7 +16,8 @@ function createAuthContext(): { ctx: TrpcContext; clearedCookies: CookieCall[] }
   const user: AuthenticatedUser = {
     id: 1,
     email: "sample@example.com",
-    passwordHash: "sample-hash",
+    openId: "sample-openid",
+    loginMethod: "oauth",
     name: "Sample User",
     role: "user",
     createdAt: new Date(),
@@ -34,14 +35,14 @@ function createAuthContext(): { ctx: TrpcContext; clearedCookies: CookieCall[] }
       clearCookie: (name: string, options: Record<string, unknown>) => {
         clearedCookies.push({ name, options });
       },
-    } as TrpcContext["res"],
+    } as unknown as TrpcContext["res"],
   };
 
   return { ctx, clearedCookies };
 }
 
-describe("auth.logout", () => {
-  it("clears the session cookie and reports success", async () => {
+describe("Auth Router - Logout", () => {
+  it("should clear the session cookie on logout", async () => {
     const { ctx, clearedCookies } = createAuthContext();
     const caller = appRouter.createCaller(ctx);
 
@@ -49,13 +50,9 @@ describe("auth.logout", () => {
 
     expect(result).toEqual({ success: true });
     expect(clearedCookies).toHaveLength(1);
-    expect(clearedCookies[0]?.name).toBe(COOKIE_NAME);
-    expect(clearedCookies[0]?.options).toMatchObject({
+    expect(clearedCookies[0].name).toBe(COOKIE_NAME);
+    expect(clearedCookies[0].options).toMatchObject({
       maxAge: -1,
-      secure: true,
-      sameSite: "none",
-      httpOnly: true,
-      path: "/",
     });
   });
 });

@@ -9,7 +9,6 @@ import { toast } from "sonner";
 export default function Login() {
   const { isAuthenticated, loading: authLoading } = useAuth();
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const loginMutation = trpc.auth.login.useMutation();
 
@@ -22,18 +21,19 @@ export default function Login() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
-      toast.error("Please fill in all fields");
+    if (!email) {
+      toast.error("Please fill in your email");
       return;
     }
 
     setLoading(true);
     try {
-      await loginMutation.mutateAsync({ email, password });
+      // Dummy OAuth login using email as openId for demonstration
+      await loginMutation.mutateAsync({ openId: email });
       toast.success("Welcome back!");
       window.location.href = "/feed";
     } catch (error: any) {
-      toast.error(error.message || "Login failed. Please check your credentials.");
+      toast.error(error.message || "Login failed. User might not exist.");
     } finally {
       setLoading(false);
     }
@@ -66,8 +66,8 @@ export default function Login() {
               <Mountain className="h-10 w-10 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-white">Welcome back</h1>
-              <p className="text-gray-400 mt-2">Sign in to your account</p>
+              <h1 className="text-3xl font-bold text-white">OAuth Login</h1>
+              <p className="text-gray-400 mt-2">Sign in via your identity provider</p>
             </div>
           </div>
 
@@ -77,20 +77,9 @@ export default function Login() {
                 <Mail className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
                 <Input
                   type="email"
-                  placeholder="Email address"
+                  placeholder="Email address (used as dummy openId)"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-gray-500 rounded-2xl h-12"
-                  required
-                />
-              </div>
-              <div className="relative">
-                <Lock className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                <Input
-                  type="password"
-                  placeholder="Password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
                   className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-gray-500 rounded-2xl h-12"
                   required
                 />
@@ -102,7 +91,7 @@ export default function Login() {
               disabled={loading}
               className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold h-12 rounded-2xl transition-all duration-200 shadow-lg shadow-blue-600/30 hover:shadow-blue-500/40"
             >
-              {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Sign In"}
+              {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Sign In with OAuth"}
             </Button>
           </form>
 

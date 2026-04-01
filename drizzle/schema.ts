@@ -8,17 +8,18 @@ export const roleEnum = pgEnum("role", ["user", "admin"]);
 
 /**
  * Core user table backing auth flow.
- * Updated to support Email/Password login.
+ * Updated to support OAuth login and snake_case database naming.
  */
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
-  email: varchar("email", { length: 320 }).notNull().unique(),
-  passwordHash: text("passwordHash").notNull(),
+  openId: varchar("open_id", { length: 64 }).notNull().unique(),
+  email: varchar("email", { length: 320 }).unique(),
   name: text("name"),
+  loginMethod: varchar("login_method", { length: 64 }),
   role: roleEnum("role").default("user").notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
-  lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  lastSignedIn: timestamp("last_signed_in").defaultNow().notNull(),
 });
 
 export type User = typeof users.$inferSelect;
@@ -29,13 +30,13 @@ export type InsertUser = typeof users.$inferInsert;
  */
 export const userProfiles = pgTable("userProfiles", {
   id: serial("id").primaryKey(),
-  userId: integer("userId").notNull().unique(),
+  userId: integer("user_id").notNull().unique(),
   bio: text("bio"),
-  avatarUrl: text("avatarUrl"),
-  climbingLevel: varchar("climbingLevel", { length: 50 }),
-  favoriteGradeSystem: varchar("favoriteGradeSystem", { length: 10 }),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+  avatarUrl: text("avatar_url"),
+  climbingLevel: varchar("climbing_level", { length: 50 }),
+  favoriteGradeSystem: varchar("favorite_grade_system", { length: 10 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 export type UserProfile = typeof userProfiles.$inferSelect;
@@ -46,17 +47,17 @@ export type InsertUserProfile = typeof userProfiles.$inferInsert;
  */
 export const routes = pgTable("routes", {
   id: serial("id").primaryKey(),
-  userId: integer("userId").notNull(),
+  userId: integer("user_id").notNull(),
   name: varchar("name", { length: 255 }).notNull(),
-  locationName: varchar("locationName", { length: 255 }).notNull(),
+  locationName: varchar("location_name", { length: 255 }).notNull(),
   latitude: decimal("latitude", { precision: 10, scale: 8 }).notNull(),
   longitude: decimal("longitude", { precision: 11, scale: 8 }).notNull(),
-  difficultyGrade: varchar("difficultyGrade", { length: 10 }).notNull(),
-  gradeSystem: varchar("gradeSystem", { length: 10 }).notNull(),
+  difficultyGrade: varchar("difficulty_grade", { length: 10 }).notNull(),
+  gradeSystem: varchar("grade_system", { length: 10 }).notNull(),
   tags: jsonb("tags"), 
   description: text("description"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 export type Route = typeof routes.$inferSelect;
@@ -67,16 +68,16 @@ export type InsertRoute = typeof routes.$inferInsert;
  */
 export const videos = pgTable("videos", {
   id: serial("id").primaryKey(),
-  userId: integer("userId").notNull(),
-  routeId: integer("routeId").notNull(),
+  userId: integer("user_id").notNull(),
+  routeId: integer("route_id").notNull(),
   title: varchar("title", { length: 255 }).notNull(),
   description: text("description"),
-  videoUrl: text("videoUrl").notNull(),
-  thumbnailUrl: text("thumbnailUrl"),
+  videoUrl: text("video_url").notNull(),
+  thumbnailUrl: text("thumbnail_url"),
   duration: integer("duration"),
   views: integer("views").default(0).notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 export type Video = typeof videos.$inferSelect;
@@ -87,10 +88,10 @@ export type InsertVideo = typeof videos.$inferInsert;
  */
 export const bookmarks = pgTable("bookmarks", {
   id: serial("id").primaryKey(),
-  userId: integer("userId").notNull(),
-  routeId: integer("routeId").notNull(),
-  videoId: integer("videoId"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  userId: integer("user_id").notNull(),
+  routeId: integer("route_id").notNull(),
+  videoId: integer("video_id"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export type Bookmark = typeof bookmarks.$inferSelect;
@@ -101,9 +102,9 @@ export type InsertBookmark = typeof bookmarks.$inferInsert;
  */
 export const likes = pgTable("likes", {
   id: serial("id").primaryKey(),
-  userId: integer("userId").notNull(),
-  videoId: integer("videoId").notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  userId: integer("user_id").notNull(),
+  videoId: integer("video_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export type Like = typeof likes.$inferSelect;
@@ -114,11 +115,11 @@ export type InsertLike = typeof likes.$inferInsert;
  */
 export const comments = pgTable("comments", {
   id: serial("id").primaryKey(),
-  userId: integer("userId").notNull(),
-  videoId: integer("videoId").notNull(),
+  userId: integer("user_id").notNull(),
+  videoId: integer("video_id").notNull(),
   content: text("content").notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 export type Comment = typeof comments.$inferSelect;
