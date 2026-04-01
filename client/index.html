@@ -33,10 +33,18 @@
         navigator.serviceWorker.register('/sw.js').catch(() => {});
       }
     </script>
-    <script
-      defer
-      src="%VITE_ANALYTICS_ENDPOINT%/umami"
-      data-website-id="%VITE_ANALYTICS_WEBSITE_ID%"></script>
+    <script>
+      // Only load analytics if the endpoint is configured
+      const analyticsEndpoint = "%VITE_ANALYTICS_ENDPOINT%";
+      const websiteId = "%VITE_ANALYTICS_WEBSITE_ID%";
+      if (analyticsEndpoint && !analyticsEndpoint.startsWith("%") && websiteId && !websiteId.startsWith("%")) {
+        const script = document.createElement("script");
+        script.defer = true;
+        script.src = `${analyticsEndpoint}/umami`;
+        script.setAttribute("data-website-id", websiteId);
+        document.body.appendChild(script);
+      }
+    </script>
   </body>
 
 </html>
