@@ -47,7 +47,7 @@ export default function Signup() {
           {/* Signup button */}
           <div className="space-y-4">
             <a
-              href={getLoginUrl()}
+              href={getLoginUrl("signUp")}
               className="flex items-center justify-center gap-3 w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-semibold py-4 px-6 rounded-2xl transition-all duration-200 shadow-lg shadow-blue-600/30 hover:-translate-y-0.5 active:translate-y-0"
             >
               <div className="w-6 h-6 bg-white/20 rounded-md flex items-center justify-center text-xs font-bold">CF</div>

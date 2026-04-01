@@ -48,24 +48,31 @@ export async function setupVite(app: Express, server: Server) {
 }
 
 export function serveStatic(app: Express) {
-  // 根据 vite.config.ts 的 build.outDir 配置，静态文件被构建在 dist/public
+  // 静态文件构建在 dist/public
   const distPath = path.resolve(process.cwd(), "dist", "public");
-  
+  const indexPath = path.resolve(distPath, "index.html");
+
   if (!fs.existsSync(distPath)) {
     console.error(
-      `Could not find the build directory: ${distPath}, make sure to build the client first`
+      `[Static] Could not find the build directory: ${distPath}`
     );
   }
 
-  app.use(express.static(distPath));
+  // 1. 优先服务静态资源文件 (js, css, images 等)
+  app.use(express.static(distPath, { index: false }));
 
-  // fall through to index.html if the file doesn't exist
-  app.use("*", (_req, res) => {
-    const indexPath = path.resolve(distPath, "index.html");
+  // 2. 对于所有非 API 的 GET 请求，统一回退到 index.html 以支持 SPA 路由
+  app.get("*", (req, res, next) => {
+    // 排除以 /api 开头的请求，让它们交给后面的路由处理
+    if (req.path.startsWith("/api")) {
+      return next();
+    }
+
     if (fs.existsSync(indexPath)) {
       res.sendFile(indexPath);
     } else {
-      res.status(404).send("Not Found");
+      res.status(404).send("Not Found: index.html is missing in dist/public");
     }
   });
 }
+

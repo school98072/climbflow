@@ -22,7 +22,7 @@ function gradeColor(grade: string): string {
 export default function Explore() {
   const [locationInput, setLocationInput] = useState("");
   const [gradeSystem, setGradeSystem] = useState<"hueco" | "yds">("hueco");
-  const [difficultyGrade, setDifficultyGrade] = useState("");
+  const [difficultyGrade, setDifficultyGrade] = useState("all");
   const [submitted, setSubmitted] = useState(false);
   const [queryParams, setQueryParams] = useState<{
     locationName?: string;
@@ -39,7 +39,7 @@ export default function Explore() {
     e.preventDefault();
     setQueryParams({
       locationName: locationInput || undefined,
-      difficultyGrade: difficultyGrade || undefined,
+      difficultyGrade: difficultyGrade === "all" ? undefined : (difficultyGrade || undefined),
       gradeSystem: gradeSystem,
     });
     setSubmitted(true);
@@ -47,7 +47,7 @@ export default function Explore() {
 
   const handleClear = () => {
     setLocationInput("");
-    setDifficultyGrade("");
+    setDifficultyGrade("all");
     setGradeSystem("hueco");
     setQueryParams({});
     setSubmitted(false);
@@ -91,7 +91,7 @@ export default function Explore() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <label className="text-sm font-semibold text-gray-700">Grade System</label>
-                  <Select value={gradeSystem} onValueChange={(v) => { setGradeSystem(v as "hueco"|"yds"); setDifficultyGrade(""); }}>
+                  <Select value={gradeSystem} onValueChange={(v) => { setGradeSystem(v as "hueco"|"yds"); setDifficultyGrade("all"); }}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="hueco">Hueco (V-scale)</SelectItem>
@@ -104,7 +104,7 @@ export default function Explore() {
                   <Select value={difficultyGrade} onValueChange={setDifficultyGrade}>
                     <SelectTrigger><SelectValue placeholder="All grades" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All grades</SelectItem>
+                      <SelectItem value="all">All grades</SelectItem>
                       {difficultyGrades.map((g) => (
                         <SelectItem key={g} value={g}>{g}</SelectItem>
                       ))}

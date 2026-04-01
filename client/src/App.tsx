@@ -36,6 +36,8 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      {/* Explicitly match both /login and subpaths */}
+      <Route path="/login" component={Login} />
       <Route path="/login/:rest*" component={Login} />
       <Route path="/signup" component={Signup} />
       <Route path="/feed" component={VideoFeed} />
