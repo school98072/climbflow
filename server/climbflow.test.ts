@@ -5,8 +5,9 @@ import type { TrpcContext } from "./_core/context";
 
 // ─── Mock DB module ────────────────────────────────────────────────────────────
 vi.mock("./db", () => ({
-  upsertUser: vi.fn(),
-  getUserByOpenId: vi.fn(),
+  createUser: vi.fn(),
+  getUserByEmail: vi.fn(),
+  getUserById: vi.fn(),
   getUserProfile: vi.fn().mockResolvedValue(null),
   createUserProfile: vi.fn().mockResolvedValue(undefined),
   updateUserProfile: vi.fn().mockResolvedValue(undefined),
@@ -24,6 +25,7 @@ vi.mock("./db", () => ({
   deleteBookmark: vi.fn().mockResolvedValue(undefined),
   getUserBookmarks: vi.fn().mockResolvedValue([]),
   isRouteBookmarked: vi.fn().mockResolvedValue(false),
+  updateLastSignedIn: vi.fn().mockResolvedValue(undefined),
 }));
 
 // ─── Mock storage module ───────────────────────────────────────────────────────
@@ -38,10 +40,9 @@ type AuthenticatedUser = NonNullable<TrpcContext["user"]>;
 function makeUser(overrides: Partial<AuthenticatedUser> = {}): AuthenticatedUser {
   return {
     id: 1,
-    openId: "test-user-openid",
     email: "climber@example.com",
+    passwordHash: "mock-hash",
     name: "Test Climber",
-    loginMethod: "manus",
     role: "user",
     createdAt: new Date("2026-01-01"),
     updatedAt: new Date("2026-01-01"),
