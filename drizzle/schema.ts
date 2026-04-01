@@ -11,32 +11,49 @@ export const roleEnum = pgEnum("role", ["user", "admin"]);
  */
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
-  openId: varchar("openId", { length: 255 }).unique(),
+  openId: varchar("open_id", { length: 255 }).unique(),
   email: varchar("email", { length: 320 }).unique(),
-  passwordHash: text("passwordHash"),
+  passwordHash: text("password_hash"),
   name: text("name"),
-  loginMethod: varchar("loginMethod", { length: 64 }),
+  loginMethod: varchar("login_method", { length: 64 }),
   role: roleEnum("role").default("user").notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
-  lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  lastSignedIn: timestamp("last_signed_in", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
 /**
+ * Sessions Table (Lucia Auth)
+ */
+export const sessions = pgTable("sessions", {
+  id: text("id").primaryKey(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id),
+  expiresAt: timestamp("expires_at", {
+    withTimezone: true,
+    mode: "date",
+  }).notNull(),
+});
+
+export type Session = typeof sessions.$inferSelect;
+export type InsertSession = typeof sessions.$inferInsert;
+
+/**
  * User Profiles Table
  */
-export const userProfiles = pgTable("userProfiles", {
+export const userProfiles = pgTable("user_profiles", {
   id: serial("id").primaryKey(),
-  userId: integer("userId").notNull().unique(),
+  userId: integer("user_id").notNull().unique().references(() => users.id),
   bio: text("bio"),
-  avatarUrl: text("avatarUrl"),
-  climbingLevel: varchar("climbingLevel", { length: 50 }),
-  favoriteGradeSystem: varchar("favoriteGradeSystem", { length: 10 }),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+  avatarUrl: text("avatar_url"),
+  climbingLevel: varchar("climbing_level", { length: 50 }),
+  favoriteGradeSystem: varchar("favorite_grade_system", { length: 10 }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export type UserProfile = typeof userProfiles.$inferSelect;
@@ -47,17 +64,17 @@ export type InsertUserProfile = typeof userProfiles.$inferInsert;
  */
 export const routes = pgTable("routes", {
   id: serial("id").primaryKey(),
-  userId: integer("userId").notNull(),
+  userId: integer("user_id").notNull().references(() => users.id),
   name: varchar("name", { length: 255 }).notNull(),
-  locationName: varchar("locationName", { length: 255 }).notNull(),
+  locationName: varchar("location_name", { length: 255 }).notNull(),
   latitude: decimal("latitude", { precision: 10, scale: 8 }).notNull(),
   longitude: decimal("longitude", { precision: 11, scale: 8 }).notNull(),
-  difficultyGrade: varchar("difficultyGrade", { length: 10 }).notNull(),
-  gradeSystem: varchar("gradeSystem", { length: 10 }).notNull(),
+  difficultyGrade: varchar("difficulty_grade", { length: 10 }).notNull(),
+  gradeSystem: varchar("grade_system", { length: 10 }).notNull(),
   tags: jsonb("tags"), 
   description: text("description"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export type Route = typeof routes.$inferSelect;
@@ -68,16 +85,16 @@ export type InsertRoute = typeof routes.$inferInsert;
  */
 export const videos = pgTable("videos", {
   id: serial("id").primaryKey(),
-  userId: integer("userId").notNull(),
-  routeId: integer("routeId").notNull(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  routeId: integer("route_id").notNull().references(() => routes.id),
   title: varchar("title", { length: 255 }).notNull(),
   description: text("description"),
-  videoUrl: text("videoUrl").notNull(),
-  thumbnailUrl: text("thumbnailUrl"),
+  videoUrl: text("video_url").notNull(),
+  thumbnailUrl: text("thumbnail_url"),
   duration: integer("duration"),
   views: integer("views").default(0).notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export type Video = typeof videos.$inferSelect;
@@ -88,10 +105,10 @@ export type InsertVideo = typeof videos.$inferInsert;
  */
 export const bookmarks = pgTable("bookmarks", {
   id: serial("id").primaryKey(),
-  userId: integer("userId").notNull(),
-  routeId: integer("routeId").notNull(),
-  videoId: integer("videoId"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  routeId: integer("route_id").notNull().references(() => routes.id),
+  videoId: integer("video_id").references(() => videos.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export type Bookmark = typeof bookmarks.$inferSelect;
@@ -102,9 +119,9 @@ export type InsertBookmark = typeof bookmarks.$inferInsert;
  */
 export const likes = pgTable("likes", {
   id: serial("id").primaryKey(),
-  userId: integer("userId").notNull(),
-  videoId: integer("videoId").notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  videoId: integer("video_id").notNull().references(() => videos.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export type Like = typeof likes.$inferSelect;
@@ -115,32 +132,15 @@ export type InsertLike = typeof likes.$inferInsert;
  */
 export const comments = pgTable("comments", {
   id: serial("id").primaryKey(),
-  userId: integer("userId").notNull(),
-  videoId: integer("videoId").notNull(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  videoId: integer("video_id").notNull().references(() => videos.id),
   content: text("content").notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export type Comment = typeof comments.$inferSelect;
 export type InsertComment = typeof comments.$inferInsert;
-
-/**
- * Sessions Table (Lucia Auth)
- */
-export const sessions = pgTable("sessions", {
-  id: text("id").primaryKey(),
-  userId: integer("userId")
-    .notNull()
-    .references(() => users.id),
-  expiresAt: timestamp("expiresAt", {
-    withTimezone: true,
-    mode: "date",
-  }).notNull(),
-});
-
-export type Session = typeof sessions.$inferSelect;
-export type InsertSession = typeof sessions.$inferInsert;
 
 /**
  * Relations
@@ -187,4 +187,3 @@ export const commentsRelations = relations(comments, ({ one }) => ({
   user: one(users, { fields: [comments.userId], references: [users.id] }),
   video: one(videos, { fields: [comments.videoId], references: [videos.id] }),
 }));
-
