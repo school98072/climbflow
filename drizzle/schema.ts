@@ -11,8 +11,9 @@ export const roleEnum = pgEnum("role", ["user", "admin"]);
  */
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
-  openId: varchar("openId", { length: 255 }).notNull().unique(),
+  openId: varchar("openId", { length: 255 }).unique(),
   email: varchar("email", { length: 320 }).unique(),
+  passwordHash: text("passwordHash"),
   name: text("name"),
   loginMethod: varchar("loginMethod", { length: 64 }),
   role: roleEnum("role").default("user").notNull(),
@@ -125,6 +126,23 @@ export type Comment = typeof comments.$inferSelect;
 export type InsertComment = typeof comments.$inferInsert;
 
 /**
+ * Sessions Table (Lucia Auth)
+ */
+export const sessions = pgTable("sessions", {
+  id: text("id").primaryKey(),
+  userId: integer("userId")
+    .notNull()
+    .references(() => users.id),
+  expiresAt: timestamp("expiresAt", {
+    withTimezone: true,
+    mode: "date",
+  }).notNull(),
+});
+
+export type Session = typeof sessions.$inferSelect;
+export type InsertSession = typeof sessions.$inferInsert;
+
+/**
  * Relations
  */
 export const usersRelations = relations(users, ({ many }) => ({
@@ -133,6 +151,11 @@ export const usersRelations = relations(users, ({ many }) => ({
   bookmarks: many(bookmarks),
   likes: many(likes),
   comments: many(comments),
+  sessions: many(sessions),
+}));
+
+export const sessionsRelations = relations(sessions, ({ one }) => ({
+  user: one(users, { fields: [sessions.userId], references: [users.id] }),
 }));
 
 export const routesRelations = relations(routes, ({ one, many }) => ({

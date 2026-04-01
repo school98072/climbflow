@@ -1,4 +1,4 @@
-import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
+import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
@@ -6,13 +6,12 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { storagePut } from "./storage";
 import { nanoid } from "nanoid";
-import { SignJWT } from "jose";
-import { ENV } from "./_core/env";
+import { getLucia } from "./auth";
+import { hash, compare } from "bcryptjs";
 import {
   createUser,
   getUserByEmail,
   getUserByOpenId,
-  getUserById,
   updateLastSignedIn,
   createRoute,
   createVideo,
@@ -37,17 +36,6 @@ import {
   getVideoComments,
 } from "./db";
 
-async function createSessionToken(userId: number) {
-  if (!ENV.cookieSecret) {
-    throw new Error("JWT_SECRET is not configured");
-  }
-  const secret = new TextEncoder().encode(ENV.cookieSecret);
-  return new SignJWT({ userId })
-    .setProtectedHeader({ alg: "HS256" })
-    .setExpirationTime("365d")
-    .sign(secret);
-}
-
 export const appRouter = router({
   system: systemRouter,
   auth: router({
@@ -56,50 +44,102 @@ export const appRouter = router({
     signup: publicProcedure
       .input(z.object({
         email: z.string().email(),
-        openId: z.string(),
+        password: z.string().min(6),
         name: z.string().optional(),
-        loginMethod: z.string().default("oauth"),
       }))
       .mutation(async ({ input, ctx }) => {
         try {
-          console.log(`[Auth] Signup attempt: ${input.email} (${input.openId})`);
+          console.log(`[Auth] Signup attempt: ${input.email}`);
           
-          const existing = await getUserByOpenId(input.openId);
+          const existing = await getUserByEmail(input.email);
           if (existing) {
             throw new TRPCError({
               code: "CONFLICT",
-              message: "User already exists",
+              message: "Email already registered",
             });
           }
 
+          const passwordHash = await hash(input.password, 10);
           const user = await createUser({
             email: input.email,
-            openId: input.openId,
+            passwordHash,
             name: input.name || null,
-            loginMethod: input.loginMethod,
+            loginMethod: "email",
           });
 
           if (!user) {
             throw new Error("Failed to create user record");
           }
 
-          const token = await createSessionToken(user.id);
-          const cookieOptions = getSessionCookieOptions(ctx.req);
-          ctx.res.cookie(COOKIE_NAME, token, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+          const lucia = await getLucia();
+          const session = await lucia.createSession(user.id.toString(), {});
+          const sessionCookie = lucia.createSessionCookie(session.id);
+          
+          ctx.res.setHeader("Set-Cookie", sessionCookie.serialize());
           
           return user;
         } catch (error: any) {
           console.error("[Auth] Signup error:", error);
           if (error instanceof TRPCError) throw error;
+          
+          if (error.code === '23505' || error.message?.includes('unique constraint')) {
+            throw new TRPCError({
+              code: "CONFLICT",
+              message: "Email already in use",
+            });
+          }
+
           throw new TRPCError({
             code: "INTERNAL_SERVER_ERROR",
             message: error.message || "An unexpected error occurred during signup",
-            cause: error,
           });
         }
       }),
 
     login: publicProcedure
+      .input(z.object({
+        email: z.string().email(),
+        password: z.string(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        try {
+          const user = await getUserByEmail(input.email);
+          if (!user || !user.passwordHash) {
+            throw new TRPCError({
+              code: "UNAUTHORIZED",
+              message: "Invalid email or password",
+            });
+          }
+
+          const validPassword = await compare(input.password, user.passwordHash);
+          if (!validPassword) {
+            throw new TRPCError({
+              code: "UNAUTHORIZED",
+              message: "Invalid email or password",
+            });
+          }
+
+          await updateLastSignedIn(user.id);
+          
+          const lucia = await getLucia();
+          const session = await lucia.createSession(user.id.toString(), {});
+          const sessionCookie = lucia.createSessionCookie(session.id);
+          
+          ctx.res.setHeader("Set-Cookie", sessionCookie.serialize());
+          
+          return user;
+        } catch (error: any) {
+          console.error("[Auth] Login error:", error);
+          if (error instanceof TRPCError) throw error;
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: error.message || "An unexpected error occurred during login",
+          });
+        }
+      }),
+
+    // Keep original openId login for compatibility or future OAuth
+    loginOAuth: publicProcedure
       .input(z.object({
         openId: z.string(),
       }))
@@ -114,24 +154,36 @@ export const appRouter = router({
           }
 
           await updateLastSignedIn(user.id);
-          const token = await createSessionToken(user.id);
-          const cookieOptions = getSessionCookieOptions(ctx.req);
-          ctx.res.cookie(COOKIE_NAME, token, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+          
+          const lucia = await getLucia();
+          const session = await lucia.createSession(user.id.toString(), {});
+          const sessionCookie = lucia.createSessionCookie(session.id);
+          
+          ctx.res.setHeader("Set-Cookie", sessionCookie.serialize());
           
           return user;
         } catch (error: any) {
-          console.error("[Auth] Login error:", error);
+          console.error("[Auth] OAuth login error:", error);
           if (error instanceof TRPCError) throw error;
           throw new TRPCError({
             code: "INTERNAL_SERVER_ERROR",
-            message: error.message || "An unexpected error occurred during login",
+            message: error.message || "An unexpected error occurred during OAuth login",
           });
         }
       }),
 
-    logout: publicProcedure.mutation(({ ctx }) => {
-      const cookieOptions = getSessionCookieOptions(ctx.req);
-      ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
+    logout: publicProcedure.mutation(async ({ ctx }) => {
+      const lucia = await getLucia();
+      const cookieHeader = ctx.req.headers.cookie || "";
+      const sessionId = lucia.readSessionCookie(cookieHeader);
+      
+      if (sessionId) {
+        await lucia.invalidateSession(sessionId);
+      }
+
+      const sessionCookie = lucia.createBlankSessionCookie();
+      ctx.res.setHeader("Set-Cookie", sessionCookie.serialize());
+      
       return { success: true } as const;
     }),
   }),
