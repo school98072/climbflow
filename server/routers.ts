@@ -2,6 +2,7 @@ import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { storagePut } from "./storage";
 import { nanoid } from "nanoid";
@@ -37,6 +38,9 @@ import {
 } from "./db";
 
 async function createSessionToken(userId: number) {
+  if (!ENV.cookieSecret) {
+    throw new Error("JWT_SECRET is not configured");
+  }
   const secret = new TextEncoder().encode(ENV.cookieSecret);
   return new SignJWT({ userId })
     .setProtectedHeader({ alg: "HS256" })
@@ -49,7 +53,6 @@ export const appRouter = router({
   auth: router({
     me: publicProcedure.query((opts) => opts.ctx.user),
     
-    // Updated to support OAuth-style registration/login via OpenId
     signup: publicProcedure
       .input(z.object({
         email: z.string().email(),
@@ -58,21 +61,42 @@ export const appRouter = router({
         loginMethod: z.string().default("oauth"),
       }))
       .mutation(async ({ input, ctx }) => {
-        const existing = await getUserByOpenId(input.openId);
-        if (existing) throw new Error("User already exists");
+        try {
+          console.log(`[Auth] Signup attempt: ${input.email} (${input.openId})`);
+          
+          const existing = await getUserByOpenId(input.openId);
+          if (existing) {
+            throw new TRPCError({
+              code: "CONFLICT",
+              message: "User already exists",
+            });
+          }
 
-        const user = await createUser({
-          email: input.email,
-          openId: input.openId,
-          name: input.name || null,
-          loginMethod: input.loginMethod,
-        });
+          const user = await createUser({
+            email: input.email,
+            openId: input.openId,
+            name: input.name || null,
+            loginMethod: input.loginMethod,
+          });
 
-        const token = await createSessionToken(user.id);
-        const cookieOptions = getSessionCookieOptions(ctx.req);
-        ctx.res.cookie(COOKIE_NAME, token, { ...cookieOptions, maxAge: ONE_YEAR_MS });
-        
-        return user;
+          if (!user) {
+            throw new Error("Failed to create user record");
+          }
+
+          const token = await createSessionToken(user.id);
+          const cookieOptions = getSessionCookieOptions(ctx.req);
+          ctx.res.cookie(COOKIE_NAME, token, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+          
+          return user;
+        } catch (error: any) {
+          console.error("[Auth] Signup error:", error);
+          if (error instanceof TRPCError) throw error;
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: error.message || "An unexpected error occurred during signup",
+            cause: error,
+          });
+        }
       }),
 
     login: publicProcedure
@@ -80,17 +104,29 @@ export const appRouter = router({
         openId: z.string(),
       }))
       .mutation(async ({ input, ctx }) => {
-        const user = await getUserByOpenId(input.openId);
-        if (!user) {
-          throw new Error("User not found");
-        }
+        try {
+          const user = await getUserByOpenId(input.openId);
+          if (!user) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "User not found",
+            });
+          }
 
-        await updateLastSignedIn(user.id);
-        const token = await createSessionToken(user.id);
-        const cookieOptions = getSessionCookieOptions(ctx.req);
-        ctx.res.cookie(COOKIE_NAME, token, { ...cookieOptions, maxAge: ONE_YEAR_MS });
-        
-        return user;
+          await updateLastSignedIn(user.id);
+          const token = await createSessionToken(user.id);
+          const cookieOptions = getSessionCookieOptions(ctx.req);
+          ctx.res.cookie(COOKIE_NAME, token, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+          
+          return user;
+        } catch (error: any) {
+          console.error("[Auth] Login error:", error);
+          if (error instanceof TRPCError) throw error;
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: error.message || "An unexpected error occurred during login",
+          });
+        }
       }),
 
     logout: publicProcedure.mutation(({ ctx }) => {

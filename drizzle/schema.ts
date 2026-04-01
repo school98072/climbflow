@@ -12,7 +12,8 @@ export const roleEnum = pgEnum("role", ["user", "admin"]);
  */
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
-  openId: varchar("open_id", { length: 64 }).notNull().unique(),
+  // Increased length to 255 to safely store emails or OAuth IDs as openId
+  openId: varchar("open_id", { length: 255 }).notNull().unique(),
   email: varchar("email", { length: 320 }).unique(),
   name: text("name"),
   loginMethod: varchar("login_method", { length: 64 }),

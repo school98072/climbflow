@@ -13,15 +13,18 @@ let _db: ReturnType<typeof drizzle> | null = null;
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
-      const client = postgres(process.env.DATABASE_URL);
+      const client = postgres(process.env.DATABASE_URL, {
+        ssl: 'require', // Force SSL which is often required for Supabase/Railway
+        connect_timeout: 10,
+      });
       _db = drizzle(client);
     } catch (error) {
       console.error("[Database] Failed to connect:", error);
-      throw new Error("Database connection failed");
+      throw new Error("Database connection failed: " + (error instanceof Error ? error.message : String(error)));
     }
   }
   if (!_db) {
-    throw new Error("Database connection not established. Check DATABASE_URL.");
+    throw new Error("Database connection not established. Check DATABASE_URL environment variable.");
   }
   return _db;
 }
@@ -30,8 +33,16 @@ export async function getDb() {
 
 export async function createUser(data: InsertUser): Promise<User> {
   const db = await getDb();
-  const [result] = await db.insert(users).values(data).returning();
-  return result;
+  try {
+    const result = await db.insert(users).values(data).returning();
+    if (!result || result.length === 0) {
+      throw new Error("Insert succeeded but no data was returned.");
+    }
+    return result[0];
+  } catch (error) {
+    console.error("[Database] Error in createUser:", error);
+    throw error;
+  }
 }
 
 export async function getUserByEmail(email: string): Promise<User | undefined> {
@@ -42,8 +53,13 @@ export async function getUserByEmail(email: string): Promise<User | undefined> {
 
 export async function getUserByOpenId(openId: string): Promise<User | undefined> {
   const db = await getDb();
-  const [result] = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
-  return result;
+  try {
+    const [result] = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
+    return result;
+  } catch (error) {
+    console.error(`[Database] Error in getUserByOpenId for ${openId}:`, error);
+    throw error;
+  }
 }
 
 export async function getUserById(id: number): Promise<User | undefined> {
