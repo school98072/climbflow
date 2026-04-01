@@ -46,9 +46,18 @@ export async function createUser(data: InsertUser): Promise<User> {
 }
 
 export async function getUserByEmail(email: string): Promise<User | undefined> {
+  if (!email) {
+    console.warn("[Database] getUserByEmail called with empty email");
+    return undefined;
+  }
   const db = await getDb();
-  const [result] = await db.select().from(users).where(eq(users.email, email)).limit(1);
-  return result;
+  try {
+    const [result] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    return result;
+  } catch (error) {
+    console.error(`[Database] Error in getUserByEmail for ${email}:`, error);
+    throw error;
+  }
 }
 
 export async function getUserByOpenId(openId: string): Promise<User | undefined> {

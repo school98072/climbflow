@@ -54,8 +54,8 @@ export const appRouter = router({
           const existing = await getUserByEmail(input.email);
           if (existing) {
             throw new TRPCError({
-              code: "CONFLICT",
-              message: "Email already registered",
+              code: "BAD_REQUEST",
+              message: "Email already exists. Please login instead.",
             });
           }
 
