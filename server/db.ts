@@ -30,7 +30,6 @@ export async function getDb() {
         _db = drizzle(client, { schema });
       }
     } catch (error) {
-...
       console.error("[Database] Failed to connect:", error);
       throw new Error("Database connection failed: " + (error instanceof Error ? error.message : String(error)));
     }
