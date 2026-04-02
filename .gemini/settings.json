@@ -1,5 +1,7 @@
 {
-  "general": {
-    "defaultApprovalMode": "auto_edit"
+  "mcpServers": {
+    "supabase": {
+      "httpUrl": "https://mcp.supabase.com/mcp?project_ref=ckdvltgylsnkbltrubwm"
+    }
   }
 }

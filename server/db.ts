@@ -1,24 +1,36 @@
 import { eq, like, and, sql, desc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
+import * as schema from "../drizzle/schema";
 import {
   InsertUser, users, userProfiles, routes, videos, bookmarks,
   InsertRoute, InsertVideo, InsertUserProfile, User,
   likes, comments
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
+let _db: ReturnType<typeof drizzle<typeof schema>> | null = null;
+let _client: ReturnType<typeof postgres> | null = null;
 
-let _db: ReturnType<typeof drizzle> | null = null;
+export async function getClient() {
+  if (!_client && process.env.DATABASE_URL) {
+    _client = postgres(process.env.DATABASE_URL, {
+      ssl: 'require',
+      connect_timeout: 10,
+      prepare: false,
+    });
+  }
+  return _client;
+}
 
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
-      const client = postgres(process.env.DATABASE_URL, {
-        ssl: 'require', // Force SSL which is often required for Supabase/Railway
-        connect_timeout: 10,
-      });
-      _db = drizzle(client);
+      const client = await getClient();
+      if (client) {
+        _db = drizzle(client, { schema });
+      }
     } catch (error) {
+...
       console.error("[Database] Failed to connect:", error);
       throw new Error("Database connection failed: " + (error instanceof Error ? error.message : String(error)));
     }
@@ -50,10 +62,16 @@ export async function getUserByEmail(email: string): Promise<User | undefined> {
     console.warn("[Database] getUserByEmail called with empty email");
     return undefined;
   }
-  const db = await getDb();
+  const client = await getClient();
+  if (!client) throw new Error("Database client not available");
+  
   try {
-    const [result] = await db.select().from(users).where(eq(users.email, email)).limit(1);
-    return result;
+    // Using raw postgres client for reliability
+    const result = await client`SELECT * FROM users WHERE email = ${email} LIMIT 1`;
+    if (result && result.length > 0) {
+      return result[0] as unknown as User;
+    }
+    return undefined;
   } catch (error) {
     console.error(`[Database] Error in getUserByEmail for ${email}:`, error);
     throw error;
@@ -61,10 +79,15 @@ export async function getUserByEmail(email: string): Promise<User | undefined> {
 }
 
 export async function getUserByOpenId(openId: string): Promise<User | undefined> {
-  const db = await getDb();
+  const client = await getClient();
+  if (!client) throw new Error("Database client not available");
+  
   try {
-    const [result] = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
-    return result;
+    const result = await client`SELECT * FROM users WHERE open_id = ${openId} LIMIT 1`;
+    if (result && result.length > 0) {
+      return result[0] as unknown as User;
+    }
+    return undefined;
   } catch (error) {
     console.error(`[Database] Error in getUserByOpenId for ${openId}:`, error);
     throw error;
@@ -72,9 +95,19 @@ export async function getUserByOpenId(openId: string): Promise<User | undefined>
 }
 
 export async function getUserById(id: number): Promise<User | undefined> {
-  const db = await getDb();
-  const [result] = await db.select().from(users).where(eq(users.id, id)).limit(1);
-  return result;
+  const client = await getClient();
+  if (!client) throw new Error("Database client not available");
+  
+  try {
+    const result = await client`SELECT * FROM users WHERE id = ${id} LIMIT 1`;
+    if (result && result.length > 0) {
+      return result[0] as unknown as User;
+    }
+    return undefined;
+  } catch (error) {
+    console.error(`[Database] Error in getUserById for ${id}:`, error);
+    throw error;
+  }
 }
 
 export async function updateLastSignedIn(id: number): Promise<void> {
