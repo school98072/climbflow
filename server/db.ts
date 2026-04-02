@@ -15,7 +15,7 @@ export async function getClient() {
   if (!_client && process.env.DATABASE_URL) {
     _client = postgres(process.env.DATABASE_URL, {
       ssl: 'require',
-      connect_timeout: 10,
+      connect_timeout: 30, // Increase timeout
       prepare: false,
     });
   }
