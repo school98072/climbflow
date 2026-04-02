@@ -51,14 +51,6 @@ export const appRouter = router({
         try {
           console.log(`[Auth] Signup attempt: ${input.email}`);
           
-          const existing = await getUserByEmail(input.email);
-          if (existing) {
-            throw new TRPCError({
-              code: "BAD_REQUEST",
-              message: "Email already exists. Please login instead.",
-            });
-          }
-
           const passwordHash = await hash(input.password, 10);
           const user = await createUser({
             email: input.email,
@@ -82,10 +74,11 @@ export const appRouter = router({
           console.error("[Auth] Signup error:", error);
           if (error instanceof TRPCError) throw error;
           
-          if (error.code === '23505' || error.message?.includes('unique constraint')) {
+          // PostgreSQL error code 23505 is unique_violation
+          if (error.code === '23505' || error.message?.includes('unique constraint') || error.message?.includes('already exists')) {
             throw new TRPCError({
               code: "CONFLICT",
-              message: "Email already in use",
+              message: "A user with this email already exists.",
             });
           }
 
