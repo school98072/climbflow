@@ -8,15 +8,16 @@ vi.mock("./db", () => ({
   createUser: vi.fn(),
   getUserByEmail: vi.fn(),
   getUserById: vi.fn(),
+  getUserByOpenId: vi.fn(),
   getUserProfile: vi.fn().mockResolvedValue(null),
   createUserProfile: vi.fn().mockResolvedValue(undefined),
   updateUserProfile: vi.fn().mockResolvedValue(undefined),
-  createRoute: vi.fn().mockResolvedValue({ insertId: 42 }),
+  createRoute: vi.fn().mockResolvedValue({ id: 42 }),
   getRouteById: vi.fn().mockResolvedValue(null),
   getAllRoutes: vi.fn().mockResolvedValue([]),
   getRoutesByUserId: vi.fn().mockResolvedValue([]),
   searchRoutesWithVideos: vi.fn().mockResolvedValue([]),
-  createVideo: vi.fn().mockResolvedValue({ insertId: 99 }),
+  createVideo: vi.fn().mockResolvedValue({ id: 99 }),
   getVideoById: vi.fn().mockResolvedValue(null),
   getVideosByRouteId: vi.fn().mockResolvedValue([]),
   getAllVideosWithRoutes: vi.fn().mockResolvedValue([]),
@@ -26,6 +27,30 @@ vi.mock("./db", () => ({
   getUserBookmarks: vi.fn().mockResolvedValue([]),
   isRouteBookmarked: vi.fn().mockResolvedValue(false),
   updateLastSignedIn: vi.fn().mockResolvedValue(undefined),
+  createLike: vi.fn().mockResolvedValue(undefined),
+  deleteLike: vi.fn().mockResolvedValue(undefined),
+  getVideoLikesCount: vi.fn().mockResolvedValue(0),
+  isVideoLikedByUser: vi.fn().mockResolvedValue(false),
+  createComment: vi.fn().mockResolvedValue(undefined),
+  deleteComment: vi.fn().mockResolvedValue(undefined),
+  getVideoComments: vi.fn().mockResolvedValue([]),
+}));
+
+// ─── Mock auth module ─────────────────────────────────────────────────────────
+vi.mock("./auth", () => ({
+  getLucia: vi.fn().mockResolvedValue({
+    createSession: vi.fn().mockResolvedValue({ id: "mock-session" }),
+    createSessionCookie: vi.fn().mockReturnValue({
+      serialize: () => "auth_session=mock-session; Path=/; HttpOnly",
+      attributes: { maxAge: 3600 }
+    }),
+    createBlankSessionCookie: vi.fn().mockReturnValue({
+      serialize: () => "auth_session=; Path=/; Max-Age=0; HttpOnly",
+      attributes: { maxAge: -1 }
+    }),
+    readSessionCookie: vi.fn().mockReturnValue("mock-session"),
+    invalidateSession: vi.fn().mockResolvedValue(undefined),
+  }),
 }));
 
 // ─── Mock storage module ───────────────────────────────────────────────────────
@@ -41,28 +66,27 @@ function makeUser(overrides: Partial<AuthenticatedUser> = {}): AuthenticatedUser
   return {
     id: 1,
     email: "climber@example.com",
-    openId: "mock-openid",
-    loginMethod: "oauth",
     name: "Test Climber",
     role: "user",
-    createdAt: new Date("2026-01-01"),
-    updatedAt: new Date("2026-01-01"),
-    lastSignedIn: new Date("2026-01-01"),
     ...overrides,
   };
 }
 
-function makeCtx(user: AuthenticatedUser | null = null): TrpcContext {
-  const clearedCookies: { name: string; options: Record<string, unknown> }[] = [];
+function makeCtx(user: AuthenticatedUser | null = null, session: any = null): TrpcContext {
+  const headers: Record<string, string> = {};
   return {
     user,
-    req: { protocol: "https", headers: {} } as TrpcContext["req"],
+    session,
+    req: { 
+      protocol: "https", 
+      headers: { cookie: "auth_session=mock-session" } 
+    } as any,
     res: {
-      clearCookie: (name: string, options: Record<string, unknown>) => {
-        clearedCookies.push({ name, options });
+      setHeader: (name: string, value: string) => {
+        headers[name] = value;
       },
-      _clearedCookies: clearedCookies,
-    } as unknown as TrpcContext["res"],
+      _headers: headers,
+    } as any,
   };
 }
 
@@ -86,10 +110,10 @@ describe("auth", () => {
     const caller = appRouter.createCaller(ctx);
     const result = await caller.auth.logout();
     expect(result).toEqual({ success: true });
-    const cleared = (ctx.res as any)._clearedCookies;
-    expect(cleared).toHaveLength(1);
-    expect(cleared[0].name).toBe(COOKIE_NAME);
-    expect(cleared[0].options).toMatchObject({ maxAge: -1 });
+    
+    const setCookie = (ctx.res as any)._headers["Set-Cookie"];
+    expect(setCookie).toBeDefined();
+    expect(setCookie).toContain("Max-Age=0");
   });
 });
 

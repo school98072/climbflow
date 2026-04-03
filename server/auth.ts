@@ -8,7 +8,6 @@ let _lucia: Lucia | null = null;
 export async function getLucia() {
   if (!_lucia) {
     const db = await getDb();
-    // @ts-ignore - Drizzle adapter might have slight type mismatches with different drizzle versions
     const adapter = new DrizzlePostgreSQLAdapter(db, sessions, users);
 
     _lucia = new Lucia(adapter, {
@@ -16,7 +15,8 @@ export async function getLucia() {
         attributes: {
           // Development (HTTP): secure: false
           // Production (HTTPS): secure: true
-          secure: process.env.NODE_ENV === "production"
+          // If using HTTPS in local dev, this can be overridden by environment variable
+          secure: process.env.NODE_ENV === "production" || process.env.SECURE_COOKIE === "true"
         }
       },
       getUserAttributes: (attributes: any) => {
