@@ -57,6 +57,7 @@ export const appRouter = router({
             passwordHash,
             name: input.name || null,
             loginMethod: "email",
+            openId: `email:${nanoid()}`, // Generate a unique openId for email users
           });
 
           if (!user) {
