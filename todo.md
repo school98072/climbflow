@@ -3,7 +3,7 @@
 ## Core Features
 
 ### Authentication & User System
-- [x] Setup Auth with email login (Manus OAuth)
+- [x] Setup Auth with email login (Supabase Auth)
 - [x] Create user registration page (Signup.tsx)
 - [x] Create user login page (Login.tsx)
 - [x] Implement logout functionality (integrated with auth router)
@@ -16,7 +16,7 @@
 - [x] Add location name and coordinates input
 - [x] Add difficulty grade selector (V0-V17 and 5.8-5.15)
 - [x] Add tags/keywords input (Dyno, Crimps, etc.)
-- [x] Implement video upload to Manus S3 Storage (storagePut)
+- [x] Implement video upload to Supabase Storage (storagePut)
 - [x] Create upload progress indicator
 - [x] Add form validation and error handling
 
@@ -94,8 +94,8 @@ Remaining Tasks:
 - [ ] Production deployment
 
 ## Notes
-- Authentication uses Manus OAuth (one-click login, no email/password form needed)
-- Video upload uses Manus S3 Storage (storagePut) for reliable CDN delivery
+- Authentication uses Supabase Auth (one-click login, no email/password form needed)
+- Video upload uses Supabase Storage (storagePut) for reliable CDN delivery
 - Database schema is production-ready with proper relationships
 - PWA configuration enables native app experience on mobile
 - Advanced features documented in ADVANCED_FEATURES.md for future development

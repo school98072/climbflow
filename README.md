@@ -67,7 +67,7 @@ ClimbFlow is a mobile-first social platform designed for climbers to share climb
 - MySQL/TiDB database
 
 **Authentication**
-- Manus OAuth integration
+- Supabase Auth integration
 - Session-based auth with JWT
 
 **Storage**
@@ -105,9 +105,9 @@ Create a `.env` file in the project root with the following variables:
 DATABASE_URL=mysql://user:password@localhost:3306/climbflow
 
 # OAuth
-VITE_APP_ID=your_manus_app_id
-OAUTH_SERVER_URL=https://api.manus.im
-VITE_OAUTH_PORTAL_URL=https://portal.manus.im
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+
 
 # JWT
 JWT_SECRET=your_jwt_secret_key
@@ -116,11 +116,11 @@ JWT_SECRET=your_jwt_secret_key
 OWNER_OPEN_ID=your_owner_id
 OWNER_NAME=Your Name
 
-# Manus APIs
-BUILT_IN_FORGE_API_URL=https://api.manus.im
-BUILT_IN_FORGE_API_KEY=your_api_key
-VITE_FRONTEND_FORGE_API_URL=https://api.manus.im
-VITE_FRONTEND_FORGE_API_KEY=your_frontend_api_key
+
+
+
+
+
 
 # Analytics
 VITE_ANALYTICS_ENDPOINT=https://analytics.example.com

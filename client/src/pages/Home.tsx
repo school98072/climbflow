@@ -1,5 +1,4 @@
 import { useAuth } from "@/_core/hooks/useAuth";
-import { getLoginUrl } from "@/const";
 import { Play, MapPin, Upload, Search, Mountain, ChevronRight, Compass, Bookmark } from "lucide-react";
 
 export default function Home() {
@@ -85,7 +84,7 @@ export default function Home() {
             </a>
           ) : (
             <a
-              href={getLoginUrl()}
+              href="/login"
               className="flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white font-semibold px-8 py-4 rounded-2xl transition-all border border-white/20 hover:-translate-y-0.5"
             >
               Get Started Free
