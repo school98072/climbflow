@@ -1,9 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
+import { ENV } from "./_core/env";
 
-// 從環境變數初始化 Supabase 客戶端
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+const supabase = createClient(ENV.supabaseUrl || "http://localhost", ENV.supabaseAnonKey || "fake");
 
 /**
  * 格式化路徑並上傳至 Supabase Storage

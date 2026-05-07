@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { getLoginUrl } from "@/const";
 import { Loader2, Mountain, Play, MapPin, Users } from "lucide-react";
+import SupabaseAuth from "@/components/Auth";
 
 export default function Login() {
   const { isAuthenticated, loading } = useAuth();
@@ -46,16 +46,10 @@ export default function Login() {
           </div>
 
           {/* Login button */}
-          <div className="space-y-4">
-            <a
-              href={getLoginUrl()}
-              className="flex items-center justify-center gap-3 w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-4 px-6 rounded-2xl transition-all duration-200 shadow-lg shadow-blue-600/30 hover:shadow-blue-500/40 hover:-translate-y-0.5 active:translate-y-0"
-            >
-              <div className="w-6 h-6 bg-white/20 rounded-md flex items-center justify-center text-xs font-bold">CF</div>
-              Continue with ClimbFlow
-            </a>
+          <div className="space-y-4 bg-white/5 p-4 rounded-2xl">
+            <SupabaseAuth />
 
-            <p className="text-center text-gray-500 text-xs">
+            <p className="text-center text-gray-500 text-xs mt-4">
               By continuing, you agree to our{" "}
               <span className="text-gray-400 underline cursor-pointer">Terms of Service</span>
               {" "}and{" "}

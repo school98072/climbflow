@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { getLoginUrl } from "@/const";
 import { Loader2, Mountain, Zap, Shield, Globe } from "lucide-react";
+import SupabaseAuth from "@/components/Auth";
 
 export default function Signup() {
   const { isAuthenticated, loading } = useAuth();
@@ -45,16 +45,10 @@ export default function Signup() {
           </div>
 
           {/* Signup button */}
-          <div className="space-y-4">
-            <a
-              href={getLoginUrl()}
-              className="flex items-center justify-center gap-3 w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-semibold py-4 px-6 rounded-2xl transition-all duration-200 shadow-lg shadow-blue-600/30 hover:-translate-y-0.5 active:translate-y-0"
-            >
-              <div className="w-6 h-6 bg-white/20 rounded-md flex items-center justify-center text-xs font-bold">CF</div>
-              Create Account
-            </a>
+          <div className="space-y-4 bg-white/5 p-4 rounded-2xl">
+            <SupabaseAuth />
 
-            <p className="text-center text-gray-500 text-xs">
+            <p className="text-center text-gray-500 text-xs mt-4">
               Already have an account?{" "}
               <a href="/login" className="text-blue-400 hover:text-blue-300 transition">Sign in</a>
             </p>

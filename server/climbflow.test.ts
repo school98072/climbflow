@@ -41,7 +41,7 @@ function makeUser(overrides: Partial<AuthenticatedUser> = {}): AuthenticatedUser
     openId: "test-user-openid",
     email: "climber@example.com",
     name: "Test Climber",
-    loginMethod: "manus",
+    loginMethod: "email",
     role: "user",
     createdAt: new Date("2026-01-01"),
     updatedAt: new Date("2026-01-01"),
